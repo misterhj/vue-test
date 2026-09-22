@@ -1,37 +1,39 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watchEffect } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import Sidebar from './components/Sidebar.vue'
+import Navbar from './components/NavBar.vue'
 
-const router = useRouter()
-const route = useRoute()
-const token = ref(localStorage.auth_token)
+const token = ref<string | null>(localStorage.getItem('auth_token'))
 
 watchEffect(() => {
-  token.value = localStorage.auth_token
+  token.value = localStorage.getItem('auth_token')
 })
 
-const handleLogout = () => {
-  localStorage.removeItem('auth_token')
-  token.value = null
-  router.push('/login')
-}
 </script>
 
 <template>
-  <div style="max-width: 800px; margin: 40px auto; font-family: system-ui, sans-serif; padding: 0 20px;">
-    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
-      <h2>Product App</h2>
-      <nav style="display: flex; gap: 15px; align-items: center;">
-        <router-link to="/">Productos</router-link>
-        <template v-if="!token">
-          <router-link to="/login">Login</router-link>
-          <router-link to="/register">Registro</router-link>
-        </template>
-        <button v-else @click="handleLogout" style="padding: 5px 10px;">Cerrar Sesión</button>
-      </nav>
-    </header>
+	<!-- Layout con menú solo para usuarios autenticados -->
+  	<div v-if="token" style="display: flex; min-height: 100vh; font-family: system-ui, sans-serif;">
+		<Sidebar />
+		<div style="flex: 1; display: flex; flex-direction: column; background: #f8f9fa;">
+			<Navbar />
+			<main style="padding: 25px; flex: 1;">
+				<router-view />
+			</main>
+		</div>
+  	</div>
 
-    <!-- Renderizado dinámico de la ruta activa -->
-    <router-view />
-  </div>
+	<!-- Layout sin menú para usuarios NO autenticados (Login / Registro) -->
+	<div v-else style="min-height: 100vh; font-family: system-ui, sans-serif; background: #f8f9fa;">
+		<main style="padding: 25px;">
+			<router-view />
+		</main>
+  	</div>
 </template>
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+}
+</style>

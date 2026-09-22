@@ -1,19 +1,21 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import HomeView from '../Views/HomeView.vue'
-import ProductsView from '../Views/ProductsView.vue'
-import LoginView from '../Views/LoginView.vue'
-import RegisterView from '../Views/RegisterView.vue'
+import HomeView from '../views/HomeView.vue'
+import ProductsView from '../views/ProductsView.vue'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: 'home',
-    component: HomeView
+    component: HomeView,
+	meta: { requiresAuth: true }
   },
   {
     path: '/products',
     name: 'products',
-    component: ProductsView
+    component: ProductsView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',
@@ -36,8 +38,13 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('auth_token')
+
+  if (to.meta.requiresAuth && !token) {
+    return next({ name: 'login' })
+  }
+
   if (to.meta.guestOnly && token) {
-    return next({ name: 'products' })
+    return next({ name: 'home' })
   }
   next()
 })
