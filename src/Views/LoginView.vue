@@ -1,37 +1,29 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { authService } from '@/services/auth.services'
 
 const router = useRouter()
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const errorMessage = ref('')
 const loading = ref(false)
+
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
+}
 
 const handleLogin = async () => {
   loading.value = true
   errorMessage.value = ''
 
   try {
-    const response = await fetch('http://localhost:8000/api/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        email: email.value,
-        password: password.value
-      })
-    })
+    const data = await authService.login({
+      email: email.value,
+      password: password.value
+    });
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Credenciales incorrectas')
-    }
-
-    localStorage.setItem('auth_token', data.access_token)
     router.push('/')
   } catch (err: any) {
     errorMessage.value = err.message
@@ -62,13 +54,23 @@ const handleLogin = async () => {
 
         <div class="form-group">
           <label for="password">Contraseña</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="••••••••"
-            required
-          />
+          <div class="password-wrapper">
+            <input
+              id="password"
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              class="toggle-password-btn"
+              @click="togglePasswordVisibility"
+              :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              {{ showPassword ? '🙈' : '👁️' }}
+            </button>
+          </div>
         </div>
 
         <button type="submit" :disabled="loading" class="btn-primary">
@@ -133,10 +135,42 @@ const handleLogin = async () => {
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-group input:focus {
   border-color: #3182ce;
+}
+
+/* Estilos para el campo de contraseña con botón integrado */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  padding-right: 40px; /* Espacio interno para que el texto no solape el botón */
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.toggle-password-btn:hover {
+  background-color: #edf2f7;
 }
 
 .btn-primary {

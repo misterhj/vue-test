@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-
-const token = ref<string | null>(null)
-
-onMounted(() => {
-  token.value = localStorage.getItem('auth_token')
-})
+import { isAuthenticated } from '@/services/auth.services'
 </script>
 
 <template>
@@ -15,7 +9,7 @@ onMounted(() => {
       <router-link to="/" class="nav-item">Inicio</router-link>
       <router-link to="/products" class="nav-item">Productos</router-link>
       
-      <template v-if="!token">
+      <template v-if="!isAuthenticated">
         <router-link to="/login" class="nav-item">Login</router-link>
         <router-link to="/register" class="nav-item">Registro</router-link>
       </template>
