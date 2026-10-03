@@ -22,34 +22,33 @@ const successMessage = ref('')
 const loading = ref(false)
 
 const handleRegister = async () => {
-  
-  	errorMessage.value = ''
-  	successMessage.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
 
-	if(password.value !== passwordConfirmation.value) {
-		errorMessage.value = 'Las contraseñas no coinciden'
-		return
-	}
+  if (password.value !== passwordConfirmation.value) {
+    errorMessage.value = 'Las contraseñas no coinciden'
+    return
+  }
 
-	loading.value = true
+  loading.value = true
 
-	try {
-		const response = await authService.register({
-			firstName: firstName.value,
-			lastName: lastName.value,
-			username: username.value,
-			email: email.value,
-			identityDocument: identityDocument.value,
-			telephone: telephone.value,
-			password: password.value
-		})
+  try {
+    const response = await authService.register({
+      firstName: firstName.value,
+      lastName: lastName.value,
+      username: username.value,
+      email: email.value,
+      identityDocument: identityDocument.value,
+      telephone: telephone.value,
+      password: password.value
+    })
 
-		successMessage.value = response.message || 'Te hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.'
-	} catch (err: any) {
-		errorMessage.value = err.response?.data?.message || err.message || 'Error al registrar usuario'
-	} finally {
-		loading.value = false
-	}
+    successMessage.value = response.message || 'Te hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.'
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || err.message || 'Error al registrar usuario'
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -68,7 +67,6 @@ const handleRegister = async () => {
       <p v-if="errorMessage" class="alert alert-error">{{ errorMessage }}</p>
 
       <form v-if="!successMessage" @submit.prevent="handleRegister" class="auth-form">
-        <!-- Fila 1: Nombre y Apellido -->
         <div class="form-row">
           <div class="form-group">
             <label for="firstName">Nombre *</label>
@@ -78,6 +76,7 @@ const handleRegister = async () => {
               type="text"
               placeholder="Juan"
               required
+              :disabled="loading"
             />
           </div>
           <div class="form-group">
@@ -88,11 +87,11 @@ const handleRegister = async () => {
               type="text"
               placeholder="Pérez"
               required
+              :disabled="loading"
             />
           </div>
         </div>
 
-        <!-- Fila 2: Username y Correo -->
         <div class="form-row">
           <div class="form-group">
             <label for="username">Usuario *</label>
@@ -102,6 +101,7 @@ const handleRegister = async () => {
               type="text"
               placeholder="juanperez"
               required
+              :disabled="loading"
             />
           </div>
           <div class="form-group">
@@ -112,11 +112,11 @@ const handleRegister = async () => {
               type="email"
               placeholder="correo@ejemplo.com"
               required
+              :disabled="loading"
             />
           </div>
         </div>
 
-        <!-- Fila 3: Documento y Teléfono (Opcionales) -->
         <div class="form-row">
           <div class="form-group">
             <label for="identityDocument">Documento (Opcional)</label>
@@ -125,6 +125,7 @@ const handleRegister = async () => {
               v-model="identityDocument"
               type="text"
               placeholder="Ej: 1234567"
+              :disabled="loading"
             />
           </div>
           <div class="form-group">
@@ -134,11 +135,11 @@ const handleRegister = async () => {
               v-model="telephone"
               type="text"
               placeholder="Ej: +595981123456"
+              :disabled="loading"
             />
           </div>
         </div>
 
-        <!-- Fila 4: Contraseñas -->
         <div class="form-row">
           <div class="form-group">
             <label for="password">Contraseña *</label>
@@ -149,6 +150,7 @@ const handleRegister = async () => {
                 :type="showPassword ? 'text' : 'password'"
                 placeholder="••••••••"
                 required
+                :disabled="loading"
               />
               <button
                 type="button"
@@ -176,6 +178,7 @@ const handleRegister = async () => {
                 :type="showPasswordConfirmation ? 'text' : 'password'"
                 placeholder="••••••••"
                 required
+                :disabled="loading"
               />
               <button
                 type="button"
@@ -196,7 +199,8 @@ const handleRegister = async () => {
         </div>
 
         <button type="submit" :disabled="loading" class="btn-success">
-          {{ loading ? 'Registrando...' : 'Registrarse' }}
+          <span v-if="loading" class="spinner"></span>
+          <span>{{ loading ? 'Registrando...' : 'Registrarse' }}</span>
         </button>
       </form>
 
@@ -291,6 +295,7 @@ const handleRegister = async () => {
   color: #718096;
 }
 
+/* Botón Success */
 .btn-success {
   margin-top: 10px;
   padding: 10px;
@@ -301,10 +306,39 @@ const handleRegister = async () => {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #218838;
 }
 
 .btn-success:disabled {
-  background-color: #a0aec0;
+  background-color: #71dd8c;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Loader CSS Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .alert {

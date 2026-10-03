@@ -19,11 +19,10 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
-    const data = await authService.login({
+    await authService.login({
       usernameOrEmail: usernameOrEmail.value,
       password: password.value
     });
-
     router.push('/')
   } catch (err: any) {
     errorMessage.value = err.message
@@ -49,6 +48,7 @@ const handleLogin = async () => {
             type="text"
             placeholder="user name"
             required
+            :disabled="loading"
           />
         </div>
 
@@ -61,6 +61,7 @@ const handleLogin = async () => {
               :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
               required
+              :disabled="loading"
             />
             <button
               type="button"
@@ -74,7 +75,8 @@ const handleLogin = async () => {
         </div>
 
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Ingresando...' : 'Login' }}
+          <span v-if="loading" class="spinner"></span>
+          <span>{{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}</span>
         </button>
       </form>
 
@@ -143,7 +145,6 @@ const handleLogin = async () => {
   border-color: #3182ce;
 }
 
-/* Estilos para el campo de contraseña con botón integrado */
 .password-wrapper {
   position: relative;
   display: flex;
@@ -151,7 +152,7 @@ const handleLogin = async () => {
 }
 
 .password-wrapper input {
-  padding-right: 40px; /* Espacio interno para que el texto no solape el botón */
+  padding-right: 40px;
 }
 
 .toggle-password-btn {
@@ -173,6 +174,7 @@ const handleLogin = async () => {
   background-color: #edf2f7;
 }
 
+/* Botón Primary */
 .btn-primary {
   margin-top: 8px;
   padding: 12px;
@@ -184,15 +186,38 @@ const handleLogin = async () => {
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
 .btn-primary:disabled {
-  background-color: #a0aec0;
+  background-color: #80bdff;
   cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Loader CSS Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .error-msg {

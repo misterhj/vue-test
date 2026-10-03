@@ -7,7 +7,6 @@ const saving = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
 
-// Estado para visibilidad de contraseñas
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
@@ -111,6 +110,7 @@ onMounted(() => {
             v-model="form.firstName"
             type="text"
             required
+            :disabled="saving"
           />
         </div>
 
@@ -121,6 +121,7 @@ onMounted(() => {
             v-model="form.lastName"
             type="text"
             required
+            :disabled="saving"
           />
         </div>
       </div>
@@ -133,6 +134,7 @@ onMounted(() => {
             v-model="form.username"
             type="text"
             required
+            :disabled="saving"
           />
         </div>
 
@@ -143,6 +145,7 @@ onMounted(() => {
             v-model="form.email"
             type="email"
             required
+            :disabled="saving"
           />
         </div>
       </div>
@@ -155,6 +158,7 @@ onMounted(() => {
             v-model="form.identityDocument"
             type="text"
             placeholder="Ej: 1234567"
+            :disabled="saving"
           />
         </div>
 
@@ -165,6 +169,7 @@ onMounted(() => {
             v-model="form.telephone"
             type="text"
             placeholder="Ej: +595981123456"
+            :disabled="saving"
           />
         </div>
       </div>
@@ -174,7 +179,6 @@ onMounted(() => {
       <h3>Cambiar Contraseña</h3>
       <p class="help-text">Deja estos campos en blanco si no deseas cambiar tu contraseña.</p>
 
-      <!-- Campos de Contraseña con Botón Mostrar/Ocultar -->
       <div class="form-row">
         <div class="form-group">
           <label for="password">Nueva Contraseña</label>
@@ -184,6 +188,7 @@ onMounted(() => {
               v-model="form.password"
               :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
+              :disabled="saving"
             />
             <button
               type="button"
@@ -211,6 +216,7 @@ onMounted(() => {
               v-model="form.confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
               placeholder="••••••••"
+              :disabled="saving"
             />
             <button
               type="button"
@@ -231,9 +237,11 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Alineación a la derecha de las acciones -->
       <div class="form-actions">
         <button type="submit" :disabled="saving" class="btn-submit">
-          {{ saving ? 'Guardando...' : 'Guardar Cambios' }}
+          <span v-if="saving" class="spinner"></span>
+          <span>{{ saving ? 'Guardando...' : 'Guardar Cambios' }}</span>
         </button>
       </div>
     </form>
@@ -315,18 +323,53 @@ onMounted(() => {
   margin-bottom: 1rem;
 }
 
+/* Form Actions alineado a la derecha */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
 .btn-submit {
   padding: 0.75rem 1.5rem;
-  background-color: #2b6cb0;
+  background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: #0056b3;
 }
 
 .btn-submit:disabled {
-  background-color: #a0aec0;
+  background-color: #80bdff;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Loader CSS Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .alert {
