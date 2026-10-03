@@ -4,32 +4,45 @@ import HomeView from '../views/HomeView.vue'
 import ProductsView from '../views/ProductsView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import ConfirmEmailView from '../views/ConfirmEmailView.vue'
 
 const routes: Array<RouteRecordRaw> = [
-  {
-    path: '/',
-    name: 'home',
-    component: HomeView,
-	meta: { requiresAuth: true }
-  },
-  {
-    path: '/products',
-    name: 'products',
-    component: ProductsView,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/login',
-    name: 'login',
-    component: LoginView,
-    meta: { guestOnly: true }
-  },
-  {
-    path: '/register',
-    name: 'register',
-    component: RegisterView,
-    meta: { guestOnly: true }
-  }
+	{
+		path: '/',
+		name: 'home',
+		component: HomeView,
+		meta: { requiresAuth: true }
+	},
+	{
+		path: '/products',
+		name: 'products',
+		component: ProductsView,
+		meta: { requiresAuth: true }
+	},
+	{
+		path: '/login',
+		name: 'login',
+		component: LoginView,
+		meta: { guestOnly: true }
+	},
+	{
+		path: '/register',
+		name: 'register',
+		component: RegisterView,
+		meta: { guestOnly: true }
+	},
+	{
+		path: '/profile',
+		name: 'profile',
+		component: ProfileView,
+		meta: { requiresAuth: true }
+	},
+	{
+		path: '/confirm-email',
+		name: 'confirm-email',
+		component: ConfirmEmailView,
+	}
 ]
 
 const router = createRouter({
