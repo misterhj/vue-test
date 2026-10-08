@@ -1,146 +1,239 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { userManagementService, type UserManagement } from '@/services/user-management.services'
+import { 
+  userManagementService, 
+  type UserManagement, 
+  type CreateUserByAdminDto 
+} from '@/services/user-management.services'
 import { roleService, type Role, type Permission } from '@/services/roles.services'
-import { useAuthStore } from '@/stores/auth'
 
-const authStore = useAuthStore()
 const users = ref<UserManagement[]>([])
 const availableRoles = ref<Role[]>([])
 const availablePermissions = ref<Permission[]>([])
-const loading = ref(false)
+const isLoading = ref(false)
 
-const isModalOpen = ref(false)
+// Estado del Modal de Creación
+const showCreateModal = ref(false)
+const newUserForm = ref<CreateUserByAdminDto>({
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  identityDocument: '',
+  telephone: '',
+  password: '',
+  roleIds: [],
+  isActive: true,
+})
+
+// Estado del Modal de Gestión de Accesos
+const showAccessModal = ref(false)
 const selectedUser = ref<UserManagement | null>(null)
 const selectedRoleIds = ref<number[]>([])
 const selectedDirectPermissionIds = ref<number[]>([])
 
 const loadData = async () => {
-  loading.value = true
+  isLoading.value = true
   try {
-    const [usersData, rolesData, permsData] = await Promise.all([
+    const [usersData, rolesData, permissionsData] = await Promise.all([
       userManagementService.getAll(),
       roleService.getAll(),
-      roleService.getPermissions()
+      roleService.getPermissions(),
     ])
     users.value = usersData
     availableRoles.value = rolesData
-    availablePermissions.value = permsData
-  } catch (err) {
-    console.error('Error al cargar datos de usuarios:', err)
+    availablePermissions.value = permissionsData
+  } catch (error: any) {
+    alert(error.message || 'Error al cargar los datos de usuarios')
   } finally {
-    loading.value = false
+    isLoading.value = false
   }
 }
 
-const openManageModal = (user: UserManagement) => {
+// Abrir Modal de Creación
+const openCreateModal = () => {
+  newUserForm.value = {
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    identityDocument: '',
+    telephone: '',
+    password: '',
+    roleIds: [],
+    isActive: true,
+  }
+  showCreateModal.value = true
+}
+
+// Guardar Nuevo Usuario (Admin)
+const handleCreateUser = async () => {
+  try {
+    await userManagementService.createByAdmin(newUserForm.value)
+    showCreateModal.value = false
+    await loadData()
+  } catch (error: any) {
+    alert(error.message || 'Error al registrar el usuario')
+  }
+}
+
+// Abrir Modal de Edición de Accesos
+const openAccessModal = (user: UserManagement) => {
   selectedUser.value = user
   selectedRoleIds.value = user.roles ? user.roles.map((r) => r.id) : []
-  selectedDirectPermissionIds.value = user.directPermissions ? user.directPermissions.map((p) => p.id) : []
-  isModalOpen.value = true
+  selectedDirectPermissionIds.value = user.directPermissions
+    ? user.directPermissions.map((p) => p.id)
+    : []
+  showAccessModal.value = true
 }
 
-const toggleRole = (roleId: number) => {
-  const index = selectedRoleIds.value.indexOf(roleId)
-  if (index === -1) selectedRoleIds.value.push(roleId)
-  else selectedRoleIds.value.splice(index, 1)
-}
-
-const toggleDirectPermission = (permId: number) => {
-  const index = selectedDirectPermissionIds.value.indexOf(permId)
-  if (index === -1) selectedDirectPermissionIds.value.push(permId)
-  else selectedDirectPermissionIds.value.splice(index, 1)
-}
-
+// Guardar Asignación de Roles y Permisos Directos
 const handleSaveAccess = async () => {
   if (!selectedUser.value) return
-
   try {
     await userManagementService.assignAccess(selectedUser.value.id, {
       roleIds: selectedRoleIds.value,
-      directPermissionIds: selectedDirectPermissionIds.value
+      directPermissionIds: selectedDirectPermissionIds.value,
     })
-    isModalOpen.value = false
-    loadData()
-  } catch (err) {
-    console.error('Error al actualizar rol y permisos:', err)
+    showAccessModal.value = false
+    await loadData()
+  } catch (error: any) {
+    alert(error.message || 'Error al guardar los accesos')
   }
 }
 
-onMounted(() => loadData())
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <template>
-  <div class="container">
-    <h1>Listado de Usuarios</h1>
+  <div class="users-container">
+    <div class="header">
+      <h2>Gestión de Usuarios</h2>
+      <button class="btn btn-primary" @click="openCreateModal">
+        + Crear Usuario
+      </button>
+    </div>
 
-    <div v-if="loading">Cargando usuarios...</div>
+    <div v-if="isLoading" class="loading">Cargando usuarios...</div>
 
     <table v-else class="data-table">
       <thead>
         <tr>
           <th>ID</th>
-          <th>Nombre</th>
-          <th>Usuario / Email</th>
-          <th>Roles Asignados</th>
-          <th>Permisos Directos</th>
-          <th v-if="authStore.hasPermission('users:manage')">Acciones</th>
+          <th>Usuario</th>
+          <th>Nombre Completo</th>
+          <th>Correo</th>
+          <th>Roles</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="u in users" :key="u.id">
-          <td>{{ u.id }}</td>
-          <td>{{ u.firstName }} {{ u.lastName }}</td>
-          <td>@{{ u.username }} <br /><small>{{ u.email }}</small></td>
+        <tr v-for="user in users" :key="user.id">
+          <td>{{ user.id }}</td>
+          <td><b>@{{ user.username }}</b></td>
+          <td>{{ user.firstName }} {{ user.lastName }}</td>
+          <td>{{ user.email }}</td>
           <td>
-            <span v-for="r in u.roles" :key="r.id" class="badge badge-role">{{ r.name }}</span>
+            <span v-for="role in user.roles" :key="role.id" class="badge badge-role">
+              {{ role.name }}
+            </span>
           </td>
           <td>
-            <span v-for="p in u.directPermissions" :key="p.id" class="badge badge-perm">{{ p.slug }}</span>
-          </td>
-          <td v-if="authStore.hasPermission('users:manage')">
-            <button @click="openManageModal(u)">Gestionar Rol y Permisos</button>
+            <button class="btn btn-sm btn-secondary" @click="openAccessModal(user)">
+              Asignar Accesos
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Modal para Gestionar Rol y Permisos del Usuario -->
-    <div v-if="isModalOpen && selectedUser" class="modal-backdrop">
+    <!-- Modal para Crear Usuario Admin -->
+    <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal-card">
-        <h2>Gestionar Acceso - {{ selectedUser.firstName }} {{ selectedUser.lastName }}</h2>
+        <h3>Crear Usuario (Administración)</h3>
+        <form @submit.prevent="handleCreateUser">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre *</label>
+              <input v-model="newUserForm.firstName" required />
+            </div>
+            <div class="form-group">
+              <label>Apellido *</label>
+              <input v-model="newUserForm.lastName" required />
+            </div>
+          </div>
 
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre de Usuario *</label>
+              <input v-model="newUserForm.username" required />
+            </div>
+            <div class="form-group">
+              <label>Correo Electrónico *</label>
+              <input v-model="newUserForm.email" type="email" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Contraseña *</label>
+            <input v-model="newUserForm.password" type="password" required minlength="8" />
+          </div>
+
+          <div class="form-group">
+            <label>Asignar Rol Inicial</label>
+            <select v-model="newUserForm.roleIds" multiple class="select-multiple">
+              <option v-for="role in availableRoles" :key="role.id" :value="role.id">
+                {{ role.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-outline" @click="showCreateModal = false">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Guardar Usuario
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal para Editar Accesos -->
+    <div v-if="showAccessModal" class="modal-overlay">
+      <div class="modal-card">
+        <h3>Gestionar Accesos de @{{ selectedUser?.username }}</h3>
+        
         <div class="section">
-          <h3>Asignar Roles</h3>
-          <div class="checkbox-list">
+          <h4>Roles</h4>
+          <div class="checkbox-group">
             <label v-for="role in availableRoles" :key="role.id" class="checkbox-item">
-              <input
-                type="checkbox"
-                :checked="selectedRoleIds.includes(role.id)"
-                @change="toggleRole(role.id)"
-              />
-              <span><strong>{{ role.name }}</strong> - {{ role.description }}</span>
+              <input type="checkbox" :value="role.id" v-model="selectedRoleIds" />
+              {{ role.name }}
             </label>
           </div>
         </div>
 
         <div class="section">
-          <h3>Asignar Permisos Directos</h3>
-          <div class="checkbox-list">
+          <h4>Permisos Directos</h4>
+          <div class="checkbox-group">
             <label v-for="perm in availablePermissions" :key="perm.id" class="checkbox-item">
-              <input
-                type="checkbox"
-                :checked="selectedDirectPermissionIds.includes(perm.id)"
-                @change="toggleDirectPermission(perm.id)"
-              />
-              <span><strong>{{ perm.slug }}</strong> - {{ perm.description }}</span>
+              <input type="checkbox" :value="perm.id" v-model="selectedDirectPermissionIds" />
+              {{ perm.slug }} - {{ perm.description }}
             </label>
           </div>
         </div>
 
         <div class="modal-actions">
-          <button type="button" @click="isModalOpen = false">Cancelar</button>
-          <button type="button" @click="handleSaveAccess" class="btn-primary">Guardar Cambios</button>
+          <button type="button" class="btn btn-outline" @click="showAccessModal = false">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" @click="handleSaveAccess">
+            Guardar Cambios
+          </button>
         </div>
       </div>
     </div>
@@ -148,84 +241,80 @@ onMounted(() => loadData())
 </template>
 
 <style scoped>
-.container { 
-    padding: 20px; 
+.users-container {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
 }
-.data-table { 
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
-.data-table th, .data-table td { 
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: left;
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
 }
-.badge { 
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    margin: 2px;
+.data-table th, .data-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
 }
 .badge-role {
-    background: #fef3c7;
-    color: #92400e;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
-.badge-perm { 
-    background: #e0e7ff;
-    color: #3730a3;
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
 }
-.btn-primary { 
-    background: #0284c7;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
+.btn-primary {
+  background: #1976d2;
+  color: #fff;
 }
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 .modal-card {
-    background: white;
-    padding: 24px;
-    border-radius: 8px;
-    width: 520px;
-    max-width: 90%;
-    max-height: 85vh;
-    overflow-y: auto;
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90%;
 }
-.checkbox-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 160px;
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 10px;
-    border-radius: 4px;
+.form-row {
+  display: flex;
+  gap: 10px;
 }
-.checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
+.form-group {
+  flex: 1;
+  margin-bottom: 15px;
 }
-.section { 
-    margin-bottom: 20px;
+.form-group input, .select-multiple {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
-.modal-actions { 
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 </style>

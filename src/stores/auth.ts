@@ -32,7 +32,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function hasPermission(permissionSlug: string): boolean {
-    return permissions.value.includes(permissionSlug)
+	// 1. Si es Admin o Super Admin, otorgar acceso total inmediato
+  	const isAdmin = user.value?.roles?.some(role => 
+    	role === 'ADMIN' || role === 'SUPER_ADMIN'
+  	)
+  	if (isAdmin) return true
+
+  	// 2. Si no es admin, validar el slug de permiso correspondiente
+  	return permissions.value.includes(permissionSlug)
   }
 
   function logout() {
