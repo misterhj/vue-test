@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import Sidebar from './components/Sidebar.vue'
 import Navbar from './components/NavBar.vue'
-import { isAuthenticated } from '@/services/auth.services'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 </script>
 
 <template>
   <!-- Layout con menú solo para usuarios autenticados -->
-  <div v-if="isAuthenticated" style="display: flex; min-height: 100vh; font-family: system-ui, sans-serif;">
+  <div v-if="authStore.isAuthenticated" style="display: flex; min-height: 100vh; font-family: system-ui, sans-serif;">
     <Sidebar />
     <div style="flex: 1; display: flex; flex-direction: column; background: #f8f9fa;">
       <Navbar />

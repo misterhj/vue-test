@@ -3,9 +3,9 @@ import type { RouteRecordRaw } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ProductsView from '../views/ProductsView.vue'
 import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ConfirmEmailView from '../views/ConfirmEmailView.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const routes: Array<RouteRecordRaw> = [
 	{
@@ -15,21 +15,36 @@ const routes: Array<RouteRecordRaw> = [
 		meta: { requiresAuth: true }
 	},
 	{
+		path: '/users',
+		name: 'users',
+		component: () => import('@/views/users/UsersListView.vue'),
+		meta: { 
+			requiresAuth: true,
+			requiredPermission: 'users:read' 
+		}
+	},
+	{
+		path: '/users/roles',
+		name: 'user-roles',
+		component: () => import('@/views/users/RolesListView.vue'),
+		meta: { 
+			requiresAuth: true,
+			requiredPermission: 'roles:read' 
+		}
+	},
+	{
 		path: '/products',
 		name: 'products',
 		component: ProductsView,
-		meta: { requiresAuth: true }
+		meta: { 
+		requiresAuth: true,
+		requiredPermission: 'products:read' // 👈 Renombrado y estandarizado
+		},
 	},
 	{
 		path: '/login',
 		name: 'login',
 		component: LoginView,
-		meta: { guestOnly: true }
-	},
-	{
-		path: '/register',
-		name: 'register',
-		component: RegisterView,
 		meta: { guestOnly: true }
 	},
 	{
@@ -51,15 +66,26 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('auth_token')
+  const authStore = useAuthStore()
 
-  if (to.meta.requiresAuth && !token) {
+  // 1. Si la ruta requiere invitado (ej. /login) y ya inició sesión
+  if (to.meta.guestOnly && authStore.isAuthenticated) {
+    return next({ name: 'home' })
+  }
+
+  // 2. Si la ruta requiere autenticación
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return next({ name: 'login' })
   }
 
-  if (to.meta.guestOnly && token) {
-    return next({ name: 'home' })
+  // 3. Verificación de permisos específicos por Slug
+  if (to.meta.requiredPermission) {
+    const requiredSlug = to.meta.requiredPermission as string
+    if (!authStore.hasPermission(requiredSlug)) {
+      return next({ name: 'home' }) // Redirige a inicio si no tiene acceso
+    }
   }
+
   next()
 })
 

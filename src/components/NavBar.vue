@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService, isAuthenticated, currentUser } from '@/services/auth.services'
+import { useAuthStore } from '@/stores/auth'
+import { authService } from '@/services/auth.services'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const isDropdownOpen = ref(false)
 
 const toggleDropdown = () => {
@@ -11,16 +13,27 @@ const toggleDropdown = () => {
 }
 
 const closeDropdown = (event: MouseEvent) => {
-	const target = event.target as HTMLElement
-	if (!target.closest('.user-menu-container')) {
-  		isDropdownOpen.value = false
-	}
+  const target = event.target as HTMLElement
+  if (!target.closest('.user-menu-container')) {
+    isDropdownOpen.value = false
+  }
 }
 
+// Avatar dinámico con el nombre real del usuario
+const avatarUrl = computed(() => {
+  if (!authStore.user) return 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
+  const name = encodeURIComponent(`${authStore.user.firstName} ${authStore.user.lastName}`)
+  return `https://ui-avatars.com/api/?name=${name}&background=0D8ABC&color=fff`
+})
+
 const handleLogout = async () => {
-	isDropdownOpen.value = false
-  	await authService.logout()
-  	router.push('/login')
+  isDropdownOpen.value = false
+  try {
+    await authService.logout()
+  } finally {
+    authStore.logout() // 👈 Limpia el estado de Pinia y localStorage
+    router.push('/login')
+  }
 }
 
 onMounted(() => {
@@ -30,7 +43,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', closeDropdown)
 })
-
 </script>
 
 <template>
@@ -38,36 +50,34 @@ onUnmounted(() => {
     <span class="navbar-title">Panel de Control</span>
 
     <div class="navbar-actions">
-      <template v-if="isAuthenticated">
+      <template v-if="authStore.isAuthenticated">
         <!-- Contenedor del Perfil con Dropdown -->
         <div class="user-menu-container">
           <button @click.stop="toggleDropdown" class="user-menu-btn">
             <img 
-              src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" 
-              :alt="currentUser?.firstName" 
+              :src="avatarUrl" 
+              :alt="authStore.user?.firstName" 
               class="user-avatar-sm" 
             />
             <span class="user-name">
-              {{ currentUser?.firstName }} {{ currentUser?.lastName }}
+              {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
             </span>
           </button>
 
-          <!-- Menú desplegable estilo AdminLTE -->
+          <!-- Menú desplegable -->
           <div v-if="isDropdownOpen" class="user-dropdown-card">
-            <!-- Header con fondo azul y Avatar grande -->
             <div class="dropdown-header">
               <img 
-                src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" 
-                :alt="currentUser?.firstName" 
+                :src="avatarUrl" 
+                :alt="authStore.user?.firstName" 
                 class="user-avatar-lg" 
               />
               <p class="dropdown-user-fullname">
-                {{ currentUser?.firstName }} {{ currentUser?.lastName }}
+                {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
               </p>
-              <small class="dropdown-user-role">@{{ currentUser?.username }}</small>
+              <small class="dropdown-user-role">@{{ authStore.user?.username }}</small>
             </div>
 
-            <!-- Acciones del pie de tarjeta -->
             <div class="dropdown-footer">
               <router-link to="/profile" @click="isDropdownOpen = false" class="btn-profile">
                 Perfil
@@ -108,7 +118,6 @@ onUnmounted(() => {
   align-items: center;
 }
 
-/* Contenedor relativo para posicionar el dropdown */
 .user-menu-container {
   position: relative;
 }
@@ -142,7 +151,6 @@ onUnmounted(() => {
   font-size: 0.95rem;
 }
 
-/* Tarjeta flotante Dropdown */
 .user-dropdown-card {
   position: absolute;
   top: 120%;

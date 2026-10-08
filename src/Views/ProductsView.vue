@@ -2,9 +2,10 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { productService, type Product } from '@/services/product.services'
-import { isAuthenticated, authService } from '@/services/auth.services'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const products = ref<Product[]>([])
 const search = ref('')
@@ -12,8 +13,7 @@ const currentPage = ref(1)
 const lastPage = ref(1)
 const loading = ref(false)
 
-// Agregamos 'price' al estado del formulario
-const form = ref<{ id: number | null; name: string; price: number | 0 }>({ 
+const form = ref<{ id: number | null; name: string; price: number }>({ 
   id: null,
   name: '',
   price: 0
@@ -22,7 +22,6 @@ const isEditing = ref(false)
 
 const fetchProducts = async (page = 1) => {
   loading.value = true
-
   try {
     const data = await productService.getAll(search.value, page)
     products.value = data.data
@@ -30,10 +29,6 @@ const fetchProducts = async (page = 1) => {
     lastPage.value = data.last_page
   } catch (err: any) {
     console.error('Error al obtener productos:', err)
-    if (err.response?.status === 401) {
-      authService.logout()
-      router.push('/login')
-    }
   } finally {
     loading.value = false
   }
@@ -64,10 +59,6 @@ const handleSubmit = async () => {
     fetchProducts(currentPage.value)
   } catch (err: any) {
     console.error('Error al guardar producto:', err)
-    if (err.response?.status === 401) {
-      authService.logout()
-      router.push('/login')
-    }
   }
 }
 
@@ -88,10 +79,6 @@ const deleteProduct = async (id: number) => {
     fetchProducts(currentPage.value)
   } catch (err: any) {
     console.error('Error al eliminar producto:', err)
-    if (err.response?.status === 401) {
-      authService.logout()
-      router.push('/login')
-    }
   }
 }
 
@@ -105,8 +92,12 @@ onMounted(() => fetchProducts())
 
 <template>
   <div>
-    <!-- Formulario con campo Nombre y Precio -->
-    <form v-if="isAuthenticated" @submit.prevent="handleSubmit" style="display: flex; gap: 10px; margin-bottom: 20px;">
+    <!-- Formulario visible solo si tiene permiso de crear o editar -->
+    <form 
+      v-if="authStore.hasPermission('products:create') || authStore.hasPermission('products:update')" 
+      @submit.prevent="handleSubmit" 
+      style="display: flex; gap: 10px; margin-bottom: 20px;"
+    >
       <input 
         type="text" 
         v-model="form.name" 
@@ -140,7 +131,7 @@ onMounted(() => fetchProducts())
           <th>ID</th>
           <th>Nombre</th>
           <th>Precio</th>
-          <th v-if="isAuthenticated">Acciones</th>
+          <th v-if="authStore.hasPermission('products:update') || authStore.hasPermission('products:delete')">Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -148,13 +139,13 @@ onMounted(() => fetchProducts())
           <td>{{ item.id }}</td>
           <td>{{ item.name }}</td>
           <td>${{ item.price }}</td>
-          <td v-if="isAuthenticated">
-            <button @click="editProduct(item)">Editar</button>
-            <button @click="deleteProduct(item.id)" style="margin-left: 5px; color: red;">Eliminar</button>
+          <td v-if="authStore.hasPermission('products:update') || authStore.hasPermission('products:delete')">
+            <button v-if="authStore.hasPermission('products:update')" @click="editProduct(item)">Editar</button>
+            <button v-if="authStore.hasPermission('products:delete')" @click="deleteProduct(item.id)" style="margin-left: 5px; color: red;">Eliminar</button>
           </td>
         </tr>
         <tr v-if="products.length === 0">
-          <td :colspan="isAuthenticated ? 4 : 3" style="text-align: center">No se encontraron productos</td>
+          <td colspan="4" style="text-align: center">No se encontraron productos</td>
         </tr>
       </tbody>
     </table>

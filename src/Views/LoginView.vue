@@ -2,8 +2,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/auth.services'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const usernameOrEmail = ref('')
 const password = ref('')
 const showPassword = ref(false)
@@ -19,11 +22,14 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
-    await authService.login({
+    const response = await authService.login({
       usernameOrEmail: usernameOrEmail.value,
       password: password.value
     });
-    router.push('/')
+
+    authStore.setSession(response);
+
+    router.push('/');
   } catch (err: any) {
     errorMessage.value = err.message
   } finally {
@@ -79,10 +85,11 @@ const handleLogin = async () => {
           <span>{{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}</span>
         </button>
       </form>
-
+	<!--
       <p class="auth-footer">
         ¿No tienes cuenta? <router-link to="/register">Regístrate aquí</router-link>
       </p>
+	-->
     </div>
   </div>
 </template>
