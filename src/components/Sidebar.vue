@@ -4,9 +4,14 @@ import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const isUsersMenuOpen = ref(false)
+const isProductsMenuOpen = ref(false)
 
 const toggleUsersMenu = () => {
   isUsersMenuOpen.value = !isUsersMenuOpen.value
+}
+
+const toggleProductsMenu = () => {
+  isProductsMenuOpen.value = !isProductsMenuOpen.value
 }
 </script>
 
@@ -18,13 +23,78 @@ const toggleUsersMenu = () => {
       <!-- Enlace Inicio -->
       <router-link to="/" class="nav-item">Inicio</router-link>
 
-      <!-- Productos -->
-      <router-link 
-        v-if="authStore.isAuthenticated && authStore.hasPermission('products:read')" 
-        to="/products" 
+      <!-- Módulo Productos (Menú Padre Desplegable) -->
+      <div v-if="authStore.isAuthenticated && (
+        authStore.hasPermission('products:read') ||
+        authStore.hasPermission('brands:read') ||
+        authStore.hasPermission('sections:read') ||
+        authStore.hasPermission('categories:read') ||
+        authStore.hasPermission('models:read')
+      )">
+        <button @click="toggleProductsMenu" class="nav-item nav-parent-btn">
+          <span>Productos</span>
+          <span class="arrow">{{ isProductsMenuOpen ? '▼' : '▶' }}</span>
+        </button>
+
+        <!-- Submenú -->
+        <div v-if="isProductsMenuOpen" class="submenu">
+          <router-link
+            v-if="authStore.hasPermission('products:read')"
+            to="/products"
+            class="submenu-item"
+          >
+            Productos
+          </router-link>
+
+          <router-link
+            v-if="authStore.hasPermission('brands:read')"
+            to="/products/brands"
+            class="submenu-item"
+          >
+            Marcas
+          </router-link>
+
+          <router-link
+            v-if="authStore.hasPermission('sections:read')"
+            to="/products/sections"
+            class="submenu-item"
+          >
+            Secciones
+          </router-link>
+
+          <router-link
+            v-if="authStore.hasPermission('categories:read')"
+            to="/products/categories"
+            class="submenu-item"
+          >
+            Categorías
+          </router-link>
+
+          <router-link
+            v-if="authStore.hasPermission('categories:read')"
+            to="/products/subcategories"
+            class="submenu-item"
+          >
+            Subcategorías
+          </router-link>
+
+          <router-link
+            v-if="authStore.hasPermission('models:read')"
+            to="/products/models"
+            class="submenu-item"
+          >
+            Modelos
+          </router-link>
+        </div>
+      </div>
+
+      <!-- Clientes -->
+      <router-link
+        v-if="authStore.isAuthenticated && authStore.hasPermission('customers:read')"
+        to="/customers"
         class="nav-item"
       >
-        Productos
+        Clientes
       </router-link>
 
       <!-- Módulo Usuarios (Menú Padre Desplegable) -->

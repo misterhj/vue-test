@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { 
   userManagementService, 
   type UserManagement, 
   type CreateUserByAdminDto 
 } from '@/services/user-management.services'
 import { roleService, type Role, type Permission } from '@/services/roles.services'
+import { listService } from '@/services/list.services'
 
 const users = ref<UserManagement[]>([])
 const availableRoles = ref<Role[]>([])
 const availablePermissions = ref<Permission[]>([])
 const isLoading = ref(false)
+const search = ref('')
+const currentPage = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
+const perPage = ref(15)
 
 // Estado del Modal de Creación
 const showCreateModal = ref(false)
@@ -32,15 +38,24 @@ const selectedUser = ref<UserManagement | null>(null)
 const selectedRoleIds = ref<number[]>([])
 const selectedDirectPermissionIds = ref<number[]>([])
 
-const loadData = async () => {
+const loadData = async (page = 1) => {
   isLoading.value = true
   try {
-    const [usersData, rolesData, permissionsData] = await Promise.all([
-      userManagementService.getAll(),
+    const [usersRes, rolesData, permissionsData] = await Promise.all([
+      listService.getAll<UserManagement>('users', {
+        search: search.value.trim() || undefined,
+        page,
+        limit: perPage.value,
+        sortBy: 'id',
+        sortOrder: 'DESC',
+      }),
       roleService.getAll(),
       roleService.getPermissions(),
     ])
-    users.value = usersData
+    users.value = usersRes.data
+    currentPage.value = usersRes.current_page
+    lastPage.value = usersRes.last_page
+    total.value = usersRes.total
     availableRoles.value = rolesData
     availablePermissions.value = permissionsData
   } catch (error: any) {
@@ -49,6 +64,12 @@ const loadData = async () => {
     isLoading.value = false
   }
 }
+
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => loadData(1), 300)
+})
 
 // Abrir Modal de Creación
 const openCreateModal = () => {
@@ -71,7 +92,7 @@ const handleCreateUser = async () => {
   try {
     await userManagementService.createByAdmin(newUserForm.value)
     showCreateModal.value = false
-    await loadData()
+    await loadData(currentPage.value)
   } catch (error: any) {
     alert(error.message || 'Error al registrar el usuario')
   }
@@ -96,7 +117,7 @@ const handleSaveAccess = async () => {
       directPermissionIds: selectedDirectPermissionIds.value,
     })
     showAccessModal.value = false
-    await loadData()
+    await loadData(currentPage.value)
   } catch (error: any) {
     alert(error.message || 'Error al guardar los accesos')
   }
@@ -114,6 +135,14 @@ onMounted(() => {
       <button class="btn btn-primary" @click="openCreateModal">
         + Crear Usuario
       </button>
+    </div>
+
+    <div class="search-bar">
+      <input
+        type="text"
+        v-model="search"
+        placeholder="Buscar por nombre, usuario o email..."
+      />
     </div>
 
     <div v-if="isLoading" class="loading">Cargando usuarios...</div>
@@ -146,8 +175,23 @@ onMounted(() => {
             </button>
           </td>
         </tr>
+        <tr v-if="users.length === 0">
+          <td colspan="6" style="text-align: center; color: #6c757d; padding: 24px;">
+            No se encontraron usuarios
+          </td>
+        </tr>
       </tbody>
     </table>
+
+    <div class="pagination">
+      <button :disabled="currentPage === 1" @click="loadData(currentPage - 1)">
+        Anterior
+      </button>
+      <span>Página {{ currentPage }} de {{ lastPage }} · {{ total }} usuarios</span>
+      <button :disabled="currentPage === lastPage" @click="loadData(currentPage + 1)">
+        Siguiente
+      </button>
+    </div>
 
     <!-- Modal para Crear Usuario Admin -->
     <div v-if="showCreateModal" class="modal-overlay">
@@ -316,5 +360,33 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+.search-bar {
+  margin-bottom: 16px;
+}
+.search-bar input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.pagination button {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

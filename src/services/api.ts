@@ -74,7 +74,10 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        authService.clearSession();
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_permissions');
         router.push({ name: 'login' });
         return Promise.reject(refreshError);
       } finally {

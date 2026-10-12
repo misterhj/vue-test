@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import ProductsView from '../views/ProductsView.vue'
+import ResourceListView from '../components/ResourceListView.vue'
 import LoginView from '../views/LoginView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ConfirmEmailView from '../views/ConfirmEmailView.vue'
@@ -35,10 +35,71 @@ const routes: Array<RouteRecordRaw> = [
 	{
 		path: '/products',
 		name: 'products',
-		component: ProductsView,
+		component: ResourceListView,
+		props: { resource: 'products' },
 		meta: { 
 		requiresAuth: true,
 		requiredPermission: 'products:read' // 👈 Renombrado y estandarizado
+		},
+	},
+	{
+		path: '/products/brands',
+		name: 'product-brands',
+		component: ResourceListView,
+		props: { resource: 'brands' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'brands:read',
+		},
+	},
+	{
+		path: '/products/sections',
+		name: 'product-sections',
+		component: ResourceListView,
+		props: { resource: 'sections' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'sections:read',
+		},
+	},
+	{
+		path: '/products/categories',
+		name: 'product-categories',
+		component: ResourceListView,
+		props: { resource: 'categories' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'categories:read',
+		},
+	},
+	{
+		path: '/products/subcategories',
+		name: 'product-subcategories',
+		component: ResourceListView,
+		props: { resource: 'subcategories' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'categories:read',
+		},
+	},
+	{
+		path: '/products/models',
+		name: 'product-models',
+		component: ResourceListView,
+		props: { resource: 'models' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'models:read',
+		},
+	},
+	{
+		path: '/customers',
+		name: 'customers',
+		component: ResourceListView,
+		props: { resource: 'customers' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'customers:read',
 		},
 	},
 	{
