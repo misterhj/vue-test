@@ -54,12 +54,12 @@ const navigate = () => {
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission('brands:read')"
-            to="/products/brands"
+            v-if="authStore.hasPermission('brands:read') || authStore.hasPermission('models:read')"
+            to="/products/brands-models"
             class="submenu-item"
             @click="navigate"
           >
-            Marcas
+            Marcas y Modelos
           </router-link>
 
           <router-link
@@ -73,29 +73,11 @@ const navigate = () => {
 
           <router-link
             v-if="authStore.hasPermission('categories:read')"
-            to="/products/categories"
+            to="/products/categories-subcategories"
             class="submenu-item"
             @click="navigate"
           >
-            Categorías
-          </router-link>
-
-          <router-link
-            v-if="authStore.hasPermission('categories:read')"
-            to="/products/subcategories"
-            class="submenu-item"
-            @click="navigate"
-          >
-            Subcategorías
-          </router-link>
-
-          <router-link
-            v-if="authStore.hasPermission('models:read')"
-            to="/products/models"
-            class="submenu-item"
-            @click="navigate"
-          >
-            Modelos
+            Categorías y Subcategorías
           </router-link>
         </div>
       </div>
@@ -152,7 +134,8 @@ const navigate = () => {
   width: 240px; 
   background: #2c3e50; 
   color: white; 
-  min-height: 100vh; 
+  height: 100vh; 
+  overflow-y: auto;
   padding: 20px 15px; 
   box-sizing: border-box;
   flex-shrink: 0;

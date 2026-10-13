@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive } from 'vue'
 import type { ResourceFormField } from '@/config/resource-list.types'
-import { listService } from '@/services/list.services'
+import { getOptions } from '@/services/list.services'
 
 interface Option {
 	value: string | number | boolean
@@ -49,16 +49,8 @@ async function loadOptions() {
 		if (field.options) {
 			options[field.key] = field.options
 		} else if (field.optionsResource) {
-			const labelKey = field.optionLabel ?? 'name'
 			try {
-				const res = await listService.getAll<Record<string, unknown>>(
-					field.optionsResource,
-					{ limit: 100 },
-				)
-				options[field.key] = res.data.map((row) => ({
-					value: Number(row.id),
-					label: String(row[labelKey] ?? row.name ?? row.id),
-				}))
+				options[field.key] = await getOptions(field.optionsResource, field.optionLabel)
 			} catch {
 				options[field.key] = []
 			}

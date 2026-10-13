@@ -5,23 +5,48 @@ import {
 	type ResourceListConfig,
 } from '@/config/resource-list.config'
 import type {
+	ResourceColumnFilterDef,
+	ResourceColumnFilterValue,
 	ResourceListFilterOption,
 	ResourceListFilters,
 	ResourceListViewColumn,
 } from '@/config/resource-list.types'
-import { listService, type ListParams } from '@/services/list.services'
+import {
+	listService,
+	clearOptionsCache,
+	getOptions,
+	type ListParams,
+} from '@/services/list.services'
 import { useAuthStore } from '@/stores/auth'
+import ColumnFilter from './ColumnFilter.vue'
 import ResourceFormModal from './ResourceFormModal.vue'
 
 type ResourceRow = Record<string, unknown>
 
-const props = defineProps<{ resource: string }>()
+const props = defineProps<{
+	resource: string
+	/** Filtros externos que se aplican siempre (p. ej. `{ brandId: 3 }`). Tienen prioridad. */
+	forcedFilters?: Record<string, unknown>
+	/** Permite seleccionar una fila (emite `rowClick`). */
+	selectable?: boolean
+	/** `id` de la fila seleccionada, para resaltarla. */
+	selectedId?: number | string | null
+	/** Oculta la fila de filtros por columna. */
+	hideFilters?: boolean
+}>()
+
+const emit = defineEmits<{
+	(e: 'row-click', row: ResourceRow): void
+}>()
 
 const authStore = useAuthStore()
 
 const config = computed<ResourceListConfig | undefined>(
 	() => RESOURCE_LIST_CONFIGS[props.resource],
 )
+
+/** Recurso contra el backend (`config.resource` permite alias, p. ej. subcategories → categories). */
+const apiResource = computed(() => config.value?.resource ?? props.resource)
 
 const showFormModal = ref(false)
 const editingRow = ref<ResourceRow | null>(null)
@@ -69,17 +94,89 @@ const lastPage = ref(1)
 const loading = ref(false)
 const error = ref('')
 
-const search = ref('')
 const limit = ref(config.value?.defaultLimit ?? 15)
 const sortBy = ref(config.value?.defaultSort?.field ?? 'id')
 const sortOrder = ref<'ASC' | 'DESC'>(config.value?.defaultSort?.order ?? 'DESC')
+const showFilters = ref(true)
 
-const activeFilters = reactive<Record<string, unknown>>({})
-const filterOptions = reactive<
-	Record<string, ResourceListFilterOption[]>
->({})
+const filters = reactive<Record<string, ResourceColumnFilterValue>>({})
+const textFilters = reactive<Record<string, string>>({})
+const filterOptions = reactive<Record<string, ResourceListFilterOption[]>>({})
 
-const isClientFiltered = computed(() => Boolean(config.value?.clientFilter))
+function buildColumnFilter(col: ResourceListViewColumn): ResourceColumnFilterDef {
+	let type = col.filterType
+	let options = col.filterOptions
+
+	if (!type) {
+		if (col.type === 'date') {
+			type = 'date'
+		} else if (col.type === 'number' || col.type === 'currency') {
+			type = 'number'
+		} else if (col.type === 'boolean') {
+			type = 'select'
+			options = [
+				{ value: true, label: 'Sí' },
+				{ value: false, label: 'No' },
+			]
+		} else {
+			type = 'text'
+		}
+	}
+
+	const multiple =
+		type === 'select' ? (col.filterMultiple ?? false) : false
+
+	return {
+		key: col.filterKey ?? col.key,
+		columnKey: col.key,
+		type,
+		multiple,
+		boolean: col.type === 'boolean',
+		placeholder: col.filterPlaceholder ?? (type === 'select' ? 'Buscar...' : 'Filtrar...'),
+		options,
+		optionsResource: col.filterOptionsResource,
+		optionLabel: col.filterOptionLabel,
+	}
+}
+
+const columnFilters = computed<ResourceColumnFilterDef[]>(() =>
+	(config.value?.columns ?? [])
+		.filter((col) => col.filterable)
+		.map((col) => buildColumnFilter(col)),
+)
+
+const columnFilterMap = computed<Record<string, ResourceColumnFilterDef>>(() => {
+	const map: Record<string, ResourceColumnFilterDef> = {}
+	for (const def of columnFilters.value) {
+		map[def.columnKey] = def
+	}
+	return map
+})
+
+const columnFilterKeys = computed(
+	() => new Set(columnFilters.value.map((def) => def.key)),
+)
+
+const leftoverFilters = computed<ResourceListFilters[]>(() =>
+	(config.value?.filters ?? []).filter((filter) => !columnFilterKeys.value.has(filter.key)),
+)
+
+const hasFilters = computed(
+	() => columnFilters.value.length > 0 || leftoverFilters.value.length > 0,
+)
+
+const filterCells = computed(() =>
+	(config.value?.columns ?? []).map((col) => ({
+		col,
+		def: columnFilterMap.value[col.key] ?? null,
+	})),
+)
+
+const hasActiveFilters = computed(() =>
+	Object.values(filters).some((value) =>
+		Array.isArray(value) ? value.length > 0 : value !== '' && value !== null && value !== undefined,
+	),
+)
 
 function getDeep(obj: unknown, path: string): unknown {
 	return path.split('.').reduce<unknown>((acc, key) => {
@@ -95,6 +192,17 @@ function getCellValue(row: ResourceRow, col: ResourceListViewColumn): unknown {
 		return col.get(row)
 	}
 	return getDeep(row, col.key)
+}
+
+function columnStyle(col: ResourceListViewColumn) {
+	const style: Record<string, string> = {}
+	if (col.align) {
+		style.textAlign = col.align
+	}
+	if (col.minWidth) {
+		style.minWidth = col.minWidth
+	}
+	return Object.keys(style).length ? style : undefined
 }
 
 function formatDate(value: unknown): string {
@@ -126,14 +234,42 @@ function formatCell(value: unknown, col: ResourceListViewColumn): string {
 	}
 }
 
+function collectFilters(): Record<string, unknown> | undefined {
+	const result: Record<string, unknown> = {}
+	for (const [key, value] of Object.entries(filters)) {
+		if (value === '' || value === null || value === undefined) {
+			continue
+		}
+		if (Array.isArray(value) && value.length === 0) {
+			continue
+		}
+		result[key] = value
+	}
+	for (const [key, value] of Object.entries(props.forcedFilters ?? {})) {
+		if (value === '' || value === null || value === undefined) {
+			continue
+		}
+		result[key] = value
+	}
+	return Object.keys(result).length ? result : undefined
+}
+
+function isSelected(row: ResourceRow): boolean {
+	return (
+		props.selectable === true &&
+		props.selectedId !== null &&
+		props.selectedId !== undefined &&
+		Number(row.id) === Number(props.selectedId)
+	)
+}
+
 function buildParams(page: number): ListParams {
 	return {
-		search: search.value.trim() || undefined,
 		page,
 		limit: limit.value,
 		sortBy: sortBy.value,
 		sortOrder: sortOrder.value,
-		filters: Object.keys(activeFilters).length ? { ...activeFilters } : undefined,
+		filters: collectFilters(),
 	}
 }
 
@@ -143,7 +279,7 @@ async function fetchAllPages(params: ListParams): Promise<ResourceRow[]> {
 	let last = 1
 	const maxPages = 100
 	do {
-		const res = await listService.getAll<ResourceRow>(props.resource, {
+		const res = await listService.getAll<ResourceRow>(apiResource.value, {
 			...params,
 			page,
 			limit: 100,
@@ -173,21 +309,17 @@ async function fetchData(page = 1) {
 	loading.value = true
 	error.value = ''
 	try {
-		if (isClientFiltered.value) {
+		if (config.value.clientFilter) {
 			const all = await fetchAllPages({
-				search: buildParams(1).search,
 				sortBy: sortBy.value,
 				sortOrder: sortOrder.value,
-				filters: buildParams(1).filters,
+				filters: collectFilters(),
 			})
 			clientRows.value = all.filter((row) => config.value!.clientFilter!(row))
 			currentPage.value = 1
 			updateClientPagination()
 		} else {
-			const res = await listService.getAll<ResourceRow>(
-				props.resource,
-				buildParams(page),
-			)
+			const res = await listService.getAll<ResourceRow>(apiResource.value, buildParams(page))
 			rows.value = res.data
 			currentPage.value = res.current_page
 			lastPage.value = res.last_page
@@ -205,20 +337,56 @@ async function fetchData(page = 1) {
 }
 
 const displayRows = computed<ResourceRow[]>(() => {
-	if (isClientFiltered.value) {
+	if (config.value?.clientFilter) {
 		const start = (currentPage.value - 1) * limit.value
 		return clientRows.value.slice(start, start + limit.value)
 	}
 	return rows.value
 })
 
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
-watch(search, () => {
-	if (searchTimeout) {
-		clearTimeout(searchTimeout)
+const textTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function onColumnText(def: ResourceColumnFilterDef, value: string) {
+	textFilters[def.key] = value
+	const existing = textTimers.get(def.key)
+	if (existing) {
+		clearTimeout(existing)
 	}
-	searchTimeout = setTimeout(() => fetchData(1), 300)
-})
+	textTimers.set(
+		def.key,
+		setTimeout(() => {
+			const raw = (textFilters[def.key] ?? '').trim()
+			filters[def.key] = def.type === 'number' && raw !== '' ? Number(raw) : raw
+			fetchData(1)
+		}, 500),
+	)
+}
+
+function onColumnValue(def: ResourceColumnFilterDef, value: ResourceColumnFilterValue) {
+	filters[def.key] = value
+	fetchData(1)
+}
+
+function clearFilters() {
+	for (const def of columnFilters.value) {
+		if (def.type === 'text' || def.type === 'number') {
+			textFilters[def.key] = ''
+			filters[def.key] = ''
+		} else if (def.type === 'select' && def.multiple) {
+			filters[def.key] = []
+		} else {
+			filters[def.key] = ''
+		}
+	}
+	for (const filter of leftoverFilters.value) {
+		if (filter.type === 'boolean') {
+			delete filters[filter.key]
+		} else {
+			filters[filter.key] = ''
+		}
+	}
+	fetchData(1)
+}
 
 function toggleSort(field: string) {
 	if (sortBy.value === field) {
@@ -234,7 +402,7 @@ function goToPage(page: number) {
 	if (page < 1 || page > lastPage.value || page === currentPage.value) {
 		return
 	}
-	if (isClientFiltered.value) {
+	if (config.value?.clientFilter) {
 		currentPage.value = page
 		return
 	}
@@ -243,7 +411,7 @@ function goToPage(page: number) {
 
 function changeLimit() {
 	currentPage.value = 1
-	if (isClientFiltered.value) {
+	if (config.value?.clientFilter) {
 		updateClientPagination()
 		return
 	}
@@ -252,12 +420,12 @@ function changeLimit() {
 
 function onSelectFilter(filter: ResourceListFilters, raw: string) {
 	if (raw === '') {
-		delete activeFilters[filter.key]
+		delete filters[filter.key]
 	} else {
 		const option = (filterOptions[filter.key] ?? []).find(
 			(opt) => String(opt.value) === raw,
 		)
-		activeFilters[filter.key] = option ? option.value : raw
+		filters[filter.key] = option ? (option.value as ResourceColumnFilterValue) : raw
 	}
 	fetchData(1)
 }
@@ -265,31 +433,37 @@ function onSelectFilter(filter: ResourceListFilters, raw: string) {
 function onBooleanFilterChange(filter: ResourceListFilters, event: Event) {
 	const checked = (event.target as HTMLInputElement).checked
 	if (checked) {
-		activeFilters[filter.key] = true
+		filters[filter.key] = true
 	} else {
-		delete activeFilters[filter.key]
+		delete filters[filter.key]
 	}
 	fetchData(1)
 }
 
+async function loadOptionsFor(key: string, resource: string, optionLabel?: string) {
+	try {
+		filterOptions[key] = await getOptions(resource, optionLabel)
+	} catch {
+		filterOptions[key] = []
+	}
+}
+
 async function loadFilterOptions() {
-	for (const filter of config.value?.filters ?? []) {
+	for (const filter of leftoverFilters.value) {
 		if (filter.options) {
 			filterOptions[filter.key] = filter.options
 		} else if (filter.optionsResource) {
-			const optionLabel = filter.optionLabel ?? 'name'
-			try {
-				const res = await listService.getAll<ResourceRow>(
-					filter.optionsResource,
-					{ limit: 100 },
-				)
-				filterOptions[filter.key] = res.data.map((row) => ({
-					value: row.id as number,
-					label: String(row[optionLabel] ?? row.name ?? row.id),
-				}))
-			} catch {
-				filterOptions[filter.key] = []
-			}
+			await loadOptionsFor(filter.key, filter.optionsResource, filter.optionLabel)
+		}
+	}
+	for (const def of columnFilters.value) {
+		if (def.type !== 'select') {
+			continue
+		}
+		if (def.options) {
+			filterOptions[def.key] = def.options
+		} else if (def.optionsResource) {
+			await loadOptionsFor(def.key, def.optionsResource, def.optionLabel)
 		}
 	}
 }
@@ -326,6 +500,7 @@ async function handleSave(payload: Record<string, unknown>) {
 			await listService.create(endpoint, payload)
 		}
 		closeModal()
+		clearOptionsCache()
 		fetchData(currentPage.value)
 	} catch (err: unknown) {
 		formError.value = (err as { message?: string })?.message ?? 'Error al guardar'
@@ -344,6 +519,7 @@ async function removeRow(row: ResourceRow) {
 	try {
 		const endpoint = config.value.endpoint ?? config.value.resource
 		await listService.remove(endpoint, Number(row.id))
+		clearOptionsCache()
 		fetchData(currentPage.value)
 	} catch (err: unknown) {
 		window.alert((err as { message?: string })?.message ?? 'Error al eliminar')
@@ -357,14 +533,55 @@ const tableColspan = computed(() => {
 
 const title = computed(() => config.value?.title ?? props.resource)
 
-onMounted(() => {
+function applyConfigDefaults() {
+	limit.value = config.value?.defaultLimit ?? 15
+	sortBy.value = config.value?.defaultSort?.field ?? 'id'
+	sortOrder.value = config.value?.defaultSort?.order ?? 'DESC'
+}
+
+function resetFilterState() {
+	for (const key of Object.keys(filters)) {
+		delete filters[key]
+	}
+	for (const key of Object.keys(textFilters)) {
+		delete textFilters[key]
+	}
+	for (const key of Object.keys(filterOptions)) {
+		delete filterOptions[key]
+	}
+	for (const def of columnFilters.value) {
+		if (def.type === 'text' || def.type === 'number') {
+			textFilters[def.key] = ''
+		} else if (def.type === 'select' && def.multiple) {
+			filters[def.key] = []
+		} else {
+			filters[def.key] = ''
+		}
+	}
+}
+
+function initializeState() {
+	applyConfigDefaults()
+	currentPage.value = 1
+	lastPage.value = 1
+	total.value = 0
+	rows.value = []
+	clientRows.value = []
+	error.value = ''
+	showFormModal.value = false
+	editingRow.value = null
+	resetFilterState()
 	loadFilterOptions()
 	fetchData(1)
-})
+}
+
+onMounted(initializeState)
+
+watch(() => props.resource, initializeState)
 
 onUnmounted(() => {
-	if (searchTimeout) {
-		clearTimeout(searchTimeout)
+	for (const timer of textTimers.values()) {
+		clearTimeout(timer)
 	}
 })
 </script>
@@ -373,24 +590,14 @@ onUnmounted(() => {
 	<div v-if="config" class="resource-list">
 		<div class="rl-header">
 			<h1>{{ title }}</h1>
-			<input
-				v-model="search"
-				type="text"
-				:placeholder="config.searchPlaceholder ?? `Buscar ${title.toLowerCase()}...`"
-				class="rl-search"
-			/>
 		</div>
 
-		<div v-if="config.filters?.length" class="rl-filters">
-			<label
-				v-for="filter in config.filters"
-				:key="filter.key"
-				class="rl-filter-item"
-			>
+		<div v-if="!hideFilters && leftoverFilters.length" class="rl-filters">
+			<label v-for="filter in leftoverFilters" :key="filter.key" class="rl-filter-item">
 				<span>{{ filter.label }}</span>
 				<select
 					v-if="filter.type === 'select'"
-					:value="activeFilters[filter.key] ?? ''"
+					:value="filters[filter.key] ?? ''"
 					@change="
 						onSelectFilter(filter, ($event.target as HTMLSelectElement).value)
 					"
@@ -407,7 +614,7 @@ onUnmounted(() => {
 				<input
 					v-else
 					type="checkbox"
-					:checked="Boolean(activeFilters[filter.key])"
+					:checked="Boolean(filters[filter.key])"
 					@change="onBooleanFilterChange(filter, $event)"
 				/>
 			</label>
@@ -418,59 +625,126 @@ onUnmounted(() => {
 
 		<div v-else class="rl-table-wrap">
 			<table class="rl-table">
-			<thead>
-				<tr>
-					<th v-if="hasManagementActions" class="rl-actions-head">
-						<button v-if="canCreate" class="rl-btn rl-btn-primary" @click="openCreate()">+</button>
-					</th>
-					<th
-						v-for="col in config.columns"
-						:key="col.key"
-						:class="{ 'rl-sortable': col.sortable }"
-						:style="col.align ? { textAlign: col.align } : undefined"
-						@click="col.sortable && toggleSort(col.key)"
-					>
-						<span>{{ col.label }}</span>
-						<span v-if="col.sortable && sortBy === col.key" class="rl-sort-arrow">
-							{{ sortOrder === 'ASC' ? '▲' : '▼' }}
-						</span>
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr v-for="row in displayRows" :key="String(row.id)">
-					<td v-if="hasManagementActions" class="rl-actions">
-						<div class="rl-actions-buttons">
-							<button v-if="canUpdate" class="rl-btn rl-btn-secondary" @click="openEdit(row)">
-								Editar
+				<thead>
+					<tr class="rl-head-row">
+						<th v-if="hasManagementActions" class="rl-actions-head">
+							<button
+								v-if="canCreate"
+								class="rl-icon-btn rl-icon-btn-primary"
+								title="Agregar"
+								aria-label="Agregar"
+								@click="openCreate()"
+							>
+								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+									<path d="M12 5v14M5 12h14" />
+								</svg>
 							</button>
-							<button v-if="canDelete" class="rl-btn rl-btn-danger" @click="removeRow(row)">
-								Eliminar
-							</button>
-						</div>
-					</td>
-					<td
-						v-for="col in config.columns"
-						:key="col.key"
-						:style="col.align ? { textAlign: col.align } : undefined"
-					>
-						<span
-							v-if="col.type === 'boolean'"
-							class="rl-badge"
-							:class="getCellValue(row, col) ? 'rl-badge-true' : 'rl-badge-false'"
+						</th>
+						<th
+							v-for="col in config.columns"
+							:key="col.key"
+							:class="{ 'rl-sortable': col.sortable }"
+							:style="columnStyle(col)"
+							@click="col.sortable && toggleSort(col.key)"
 						>
-							{{ getCellValue(row, col) ? 'Sí' : 'No' }}
-						</span>
-						<span v-else>{{ formatCell(getCellValue(row, col), col) }}</span>
-					</td>
-				</tr>
-				<tr v-if="displayRows.length === 0">
-					<td :colspan="tableColspan" class="rl-empty">
-						No se encontraron registros
-					</td>
-				</tr>
-			</tbody>
-		</table>
+							<span>{{ col.label }}</span>
+							<span v-if="col.sortable && sortBy === col.key" class="rl-sort-arrow">
+								{{ sortOrder === 'ASC' ? '▲' : '▼' }}
+							</span>
+						</th>
+					</tr>
+					<tr v-if="!hideFilters && showFilters" class="rl-filter-row">
+						<th v-if="hasManagementActions" class="rl-actions-filter">
+							<button
+								v-if="hasActiveFilters"
+								class="rl-icon-btn"
+								title="Limpiar filtros"
+								aria-label="Limpiar filtros"
+								@click="clearFilters()"
+							>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+									<path d="M18 6 6 18M6 6l12 12" />
+								</svg>
+							</button>
+						</th>
+						<th
+							v-for="cell in filterCells"
+							:key="cell.col.key"
+							class="rl-filter-cell"
+							:style="columnStyle(cell.col)"
+						>
+							<ColumnFilter
+								:def="cell.def"
+								:options="cell.def ? filterOptions[cell.def.key] : undefined"
+								:value="cell.def ? filters[cell.def.key] : undefined"
+								:text="cell.def ? textFilters[cell.def.key] : undefined"
+								@update:text="onColumnText"
+								@update:value="onColumnValue"
+							/>
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr
+						v-for="row in displayRows"
+						:key="String(row.id)"
+						:class="{
+							'rl-row-selectable': selectable,
+							'rl-row-active': isSelected(row),
+						}"
+						@click="selectable && emit('row-click', row)"
+					>
+						<td v-if="hasManagementActions" class="rl-actions">
+							<div class="rl-actions-buttons">
+								<button
+									v-if="canUpdate"
+									class="rl-icon-btn"
+									title="Editar"
+									aria-label="Editar"
+									@click.stop="openEdit(row)"
+								>
+									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M12 20h9" />
+										<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+									</svg>
+								</button>
+								<button
+									v-if="canDelete"
+									class="rl-icon-btn rl-icon-btn-danger"
+									title="Eliminar"
+									aria-label="Eliminar"
+									@click.stop="removeRow(row)"
+								>
+									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M3 6h18" />
+										<path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+										<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+									</svg>
+								</button>
+							</div>
+						</td>
+						<td
+							v-for="col in config.columns"
+							:key="col.key"
+							:style="columnStyle(col)"
+						>
+							<span
+								v-if="col.type === 'boolean'"
+								class="rl-badge"
+								:class="getCellValue(row, col) ? 'rl-badge-true' : 'rl-badge-false'"
+							>
+								{{ getCellValue(row, col) ? 'Sí' : 'No' }}
+							</span>
+							<span v-else>{{ formatCell(getCellValue(row, col), col) }}</span>
+						</td>
+					</tr>
+					<tr v-if="displayRows.length === 0">
+						<td :colspan="tableColspan" class="rl-empty">
+							No se encontraron registros
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
 		<div class="rl-footer">
@@ -483,6 +757,20 @@ onUnmounted(() => {
 				</span>
 				<button :disabled="currentPage === lastPage" @click="goToPage(currentPage + 1)">
 					Siguiente
+				</button>
+				<button
+					v-if="hasFilters && !hideFilters"
+					class="rl-icon-btn rl-filter-toggle"
+					:class="{ 'rl-filter-toggle-active': showFilters }"
+					:title="showFilters ? 'Ocultar filtros' : 'Mostrar filtros'"
+					:aria-label="showFilters ? 'Ocultar filtros' : 'Mostrar filtros'"
+					:aria-pressed="showFilters"
+					@click="showFilters = !showFilters"
+				>
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="11" cy="11" r="7" />
+						<path d="m21 21-4.3-4.3" />
+					</svg>
 				</button>
 			</div>
 			<select v-model.number="limit" class="rl-limit" @change="changeLimit">
@@ -509,6 +797,11 @@ onUnmounted(() => {
 
 <style scoped>
 .resource-list {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	background: #fff;
 	padding: 20px;
 	border-radius: 8px;
@@ -519,8 +812,9 @@ onUnmounted(() => {
 	justify-content: space-between;
 	align-items: center;
 	gap: 16px;
-	margin-bottom: 16px;
+	margin-bottom: 12px;
 	flex-wrap: wrap;
+	flex-shrink: 0;
 }
 
 .rl-header h1 {
@@ -529,22 +823,15 @@ onUnmounted(() => {
 	color: #2c3e50;
 }
 
-.rl-search {
-	padding: 8px 12px;
-	border: 1px solid #ccc;
-	border-radius: 4px;
-	width: 320px;
-	max-width: 100%;
-}
-
 .rl-filters {
 	display: flex;
 	gap: 16px;
 	flex-wrap: wrap;
-	margin-bottom: 16px;
+	margin-bottom: 12px;
 	padding: 12px;
 	background: #f8f9fa;
 	border-radius: 6px;
+	flex-shrink: 0;
 }
 
 .rl-filter-item {
@@ -563,6 +850,10 @@ onUnmounted(() => {
 }
 
 .rl-message {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	padding: 24px;
 	text-align: center;
 	color: #6c757d;
@@ -573,13 +864,16 @@ onUnmounted(() => {
 }
 
 .rl-table-wrap {
+	flex: 1 1 auto;
+	min-height: 0;
 	width: 100%;
-	overflow-x: auto;
+	overflow: auto;
 }
 
 .rl-table {
 	width: 100%;
-	border-collapse: collapse;
+	border-collapse: separate;
+	border-spacing: 0;
 }
 
 .rl-table th,
@@ -589,12 +883,34 @@ onUnmounted(() => {
 	text-align: left;
 }
 
-.rl-table th {
+.rl-table thead th {
+	position: sticky;
+	background: #fff;
+	white-space: nowrap;
 	color: #6c757d;
 	font-size: 0.85rem;
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
 	user-select: none;
+}
+
+.rl-head-row th {
+	top: 0;
+	height: 38px;
+	box-sizing: border-box;
+	z-index: 3;
+	box-shadow: inset 0 -1px 0 #eee;
+}
+
+.rl-filter-row th {
+	top: 38px;
+	z-index: 2;
+	box-shadow: inset 0 -1px 0 #e9ecef;
+}
+
+.rl-filter-cell {
+	padding: 6px 8px;
+	vertical-align: middle;
 }
 
 .rl-sortable {
@@ -617,38 +933,65 @@ onUnmounted(() => {
 	padding: 24px;
 }
 
-.rl-actions-head {
-	min-width: 150px;
-}
-
-.rl-btn {
-	padding: 6px 12px;
-	border-radius: 4px;
-	border: none;
+.rl-row-selectable {
 	cursor: pointer;
-	font-size: 0.85rem;
 }
 
-.rl-btn-primary {
-	background: #1976d2;
-	color: #fff;
+.rl-row-selectable:hover {
+	background: #f8f9fa;
 }
 
-.rl-btn-secondary {
-	background: #f0f0f0;
-	color: #333;
-	border: 1px solid #d5d9dc;
+.rl-row-active,
+.rl-row-active:hover {
+	background: #e3f2fd;
 }
 
-.rl-btn-danger {
-	background: #dc3545;
-	color: #fff;
+.rl-actions-head,
+.rl-actions-filter {
+	width: 86px;
 }
 
 .rl-actions-buttons {
 	display: flex;
 	gap: 6px;
 	flex-wrap: wrap;
+}
+
+.rl-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	background: #f1f3f5;
+	color: #495057;
+	cursor: pointer;
+	vertical-align: middle;
+}
+
+.rl-icon-btn:hover {
+	background: #e2e6ea;
+}
+
+.rl-icon-btn-primary {
+	background: #1976d2;
+	color: #fff;
+}
+
+.rl-icon-btn-primary:hover {
+	background: #1565c0;
+}
+
+.rl-icon-btn-danger {
+	background: #fde8e8;
+	color: #c62828;
+}
+
+.rl-icon-btn-danger:hover {
+	background: #f8d7da;
 }
 
 .rl-badge {
@@ -673,7 +1016,10 @@ onUnmounted(() => {
 	justify-content: space-between;
 	align-items: center;
 	gap: 16px;
-	margin-top: 16px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid #eee;
+	flex-shrink: 0;
 	flex-wrap: wrap;
 }
 
@@ -694,6 +1040,29 @@ onUnmounted(() => {
 .rl-pagination button:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
+}
+
+.rl-pagination .rl-filter-toggle {
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	background: #f1f3f5;
+	border-color: transparent;
+	color: #495057;
+}
+
+.rl-pagination .rl-filter-toggle:hover {
+	background: #e2e6ea;
+}
+
+.rl-pagination .rl-filter-toggle-active {
+	background: #1976d2;
+	border-color: #1976d2;
+	color: #fff;
+}
+
+.rl-pagination .rl-filter-toggle-active:hover {
+	background: #1565c0;
 }
 
 .rl-limit {

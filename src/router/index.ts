@@ -43,13 +43,12 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
-		path: '/products/brands',
-		name: 'product-brands',
-		component: ResourceListView,
-		props: { resource: 'brands' },
+		path: '/products/brands-models',
+		name: 'product-brands-models',
+		component: () => import('@/views/BrandModelsView.vue'),
 		meta: {
 			requiresAuth: true,
-			requiredPermission: 'brands:read',
+			requiredPermissions: ['brands:read', 'models:read'],
 		},
 	},
 	{
@@ -63,33 +62,12 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
-		path: '/products/categories',
-		name: 'product-categories',
-		component: ResourceListView,
-		props: { resource: 'categories' },
+		path: '/products/categories-subcategories',
+		name: 'product-categories-subcategories',
+		component: () => import('@/views/CategorySubcategoryView.vue'),
 		meta: {
 			requiresAuth: true,
 			requiredPermission: 'categories:read',
-		},
-	},
-	{
-		path: '/products/subcategories',
-		name: 'product-subcategories',
-		component: ResourceListView,
-		props: { resource: 'subcategories' },
-		meta: {
-			requiresAuth: true,
-			requiredPermission: 'categories:read',
-		},
-	},
-	{
-		path: '/products/models',
-		name: 'product-models',
-		component: ResourceListView,
-		props: { resource: 'models' },
-		meta: {
-			requiresAuth: true,
-			requiredPermission: 'models:read',
 		},
 	},
 	{
@@ -144,6 +122,14 @@ router.beforeEach((to, from, next) => {
     const requiredSlug = to.meta.requiredPermission as string
     if (!authStore.hasPermission(requiredSlug)) {
       return next({ name: 'home' }) // Redirige a inicio si no tiene acceso
+    }
+  }
+
+  // 4. Verificación de permisos alternativos (basta con uno)
+  if (Array.isArray(to.meta.requiredPermissions)) {
+    const slugs = to.meta.requiredPermissions as string[]
+    if (!slugs.some((slug) => authStore.hasPermission(slug))) {
+      return next({ name: 'home' })
     }
   }
 

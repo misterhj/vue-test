@@ -32,31 +32,66 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar por nombre, código o código de barras...',
 		defaultSort: { field: 'id', order: 'DESC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number', sortable: true },
-			{ key: 'name', label: 'Nombre', sortable: true },
-			{ key: 'code', label: 'Código' },
-			{ key: 'price', label: 'Precio', type: 'currency', sortable: true, align: 'right' },
-			{ key: 'stock', label: 'Stock', type: 'number', sortable: true, align: 'right' },
+			{ key: 'id', label: 'ID', type: 'number', sortable: true, filterable: true },
+			{ key: 'name', label: 'Nombre', sortable: true, filterable: true, minWidth: '300px' },
+			{ key: 'code', label: 'Código', filterable: true },
+			{
+				key: 'price',
+				label: 'Precio',
+				type: 'currency',
+				sortable: true,
+				align: 'right',
+				filterable: true,
+			},
+			{
+				key: 'stock',
+				label: 'Stock',
+				type: 'number',
+				sortable: true,
+				align: 'right',
+				filterable: true,
+			},
 			{
 				key: 'category',
 				label: 'Categoría',
 				get: (row: Record<string, unknown>) =>
 					(row.category as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'categoryId',
+				filterOptionsResource: 'categories',
 			},
 			{
 				key: 'brand',
 				label: 'Marca',
 				get: (row: Record<string, unknown>) =>
 					(row.brand as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'brandId',
+				filterOptionsResource: 'brands',
 			},
-			{ key: 'isActive', label: 'Activo', type: 'boolean' },
-		],
-		filters: [
-			{ key: 'isActive', label: 'Activo', type: 'boolean' },
-			{ key: 'brandId', label: 'Marca', type: 'select', optionsResource: 'brands' },
-			{ key: 'categoryId', label: 'Categoría', type: 'select', optionsResource: 'categories' },
-			{ key: 'sectionId', label: 'Sección', type: 'select', optionsResource: 'sections' },
-			{ key: 'modelId', label: 'Modelo', type: 'select', optionsResource: 'models' },
+			{
+				key: 'section',
+				label: 'Sección',
+				get: (row: Record<string, unknown>) =>
+					(row.section as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'sectionId',
+				filterOptionsResource: 'sections',
+			},
+			{
+				key: 'model',
+				label: 'Modelo',
+				get: (row: Record<string, unknown>) =>
+					(row.model as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'modelId',
+				filterOptionsResource: 'models',
+			},
+			{ key: 'isActive', label: 'Activo', type: 'boolean', filterable: true },
 		],
 		form: [
 			{ key: 'name', label: 'Nombre', type: 'text', required: true, maxLength: 150 },
@@ -80,9 +115,9 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar marcas...',
 		defaultSort: { field: 'name', order: 'ASC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
-			{ key: 'name', label: 'Marca', sortable: true },
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
+			{ key: 'name', label: 'Marca', sortable: true, filterable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		form: [
 			{ key: 'name', label: 'Marca', type: 'text', required: true, maxLength: 150 },
@@ -95,9 +130,9 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar secciones...',
 		defaultSort: { field: 'name', order: 'ASC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
-			{ key: 'name', label: 'Sección', sortable: true },
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
+			{ key: 'name', label: 'Sección', sortable: true, filterable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		form: [
 			{ key: 'name', label: 'Sección', type: 'text', required: true, maxLength: 150 },
@@ -110,16 +145,20 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar categorías...',
 		defaultSort: { field: 'name', order: 'ASC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
-			{ key: 'name', label: 'Categoría', sortable: true },
-			{ key: 'slug', label: 'Slug' },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
+			{ key: 'name', label: 'Categoría', sortable: true, filterable: true },
+			{ key: 'slug', label: 'Slug', filterable: true },
 			{
 				key: 'parentCategory',
 				label: 'Categoría padre',
 				get: (row: Record<string, unknown>) =>
 					(row.parentCategory as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'parentCategoryId',
+				filterOptionsResource: 'categories',
 			},
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		form: [
 			{ key: 'name', label: 'Nombre', type: 'text', required: true, maxLength: 150 },
@@ -138,16 +177,20 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar subcategorías...',
 		defaultSort: { field: 'name', order: 'ASC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
-			{ key: 'name', label: 'Subcategoría', sortable: true },
-			{ key: 'slug', label: 'Slug' },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
+			{ key: 'name', label: 'Subcategoría', sortable: true, filterable: true },
+			{ key: 'slug', label: 'Slug', filterable: true },
 			{
 				key: 'parentCategory',
 				label: 'Categoría padre',
 				get: (row: Record<string, unknown>) =>
 					(row.parentCategory as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'parentCategoryId',
+				filterOptionsResource: 'categories',
 			},
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		endpoint: 'categories',
 		form: [
@@ -169,15 +212,19 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar modelos...',
 		defaultSort: { field: 'name', order: 'ASC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
-			{ key: 'name', label: 'Modelo', sortable: true },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
+			{ key: 'name', label: 'Modelo', sortable: true, filterable: true },
 			{
 				key: 'brand',
 				label: 'Marca',
 				get: (row: Record<string, unknown>) =>
 					(row.brand as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'brandId',
+				filterOptionsResource: 'brands',
 			},
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		filters: [{ key: 'brandId', label: 'Marca', type: 'select', optionsResource: 'brands' }],
 		form: [
@@ -198,7 +245,7 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 		searchPlaceholder: 'Buscar por nombre, documento, email o teléfono...',
 		defaultSort: { field: 'id', order: 'DESC' },
 		columns: [
-			{ key: 'id', label: 'ID', type: 'number' },
+			{ key: 'id', label: 'ID', type: 'number', filterable: true },
 			{
 				key: 'name',
 				label: 'Nombre / Razón social',
@@ -213,16 +260,24 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 						? `${[row.documentType, row.documentNumber].filter(Boolean).join(' ')}`
 						: null,
 			},
-			{ key: 'email', label: 'Email', sortable: true },
-			{ key: 'phone', label: 'Teléfono' },
+			{ key: 'email', label: 'Email', sortable: true, filterable: true },
+			{ key: 'phone', label: 'Teléfono', filterable: true },
 			{
 				key: 'kind',
 				label: 'Tipo',
 				get: (row: Record<string, unknown>) =>
 					row.kind === 'company' ? 'Empresa' : 'Persona',
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'kind',
+				filterMultiple: false,
+				filterOptions: [
+					{ value: 'individual', label: 'Persona' },
+					{ value: 'company', label: 'Empresa' },
+				],
 			},
-			{ key: 'isActive', label: 'Activo', type: 'boolean' },
-			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true },
+			{ key: 'isActive', label: 'Activo', type: 'boolean', filterable: true },
+			{ key: 'createdAt', label: 'Creado', type: 'date', sortable: true, filterable: true },
 		],
 		filters: [
 			{

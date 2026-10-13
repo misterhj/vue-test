@@ -51,7 +51,8 @@ body {
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-main {
@@ -60,11 +61,16 @@ body {
   flex-direction: column;
   background: #f8f9fa;
   min-width: 0;
+  min-height: 0;
 }
 
 .app-content {
   padding: 25px;
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
 }
 
 .sidebar-overlay {
