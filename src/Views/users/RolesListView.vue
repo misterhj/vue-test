@@ -102,7 +102,8 @@ onMounted(() => fetchData())
 
     <div v-if="loading">Cargando roles...</div>
 
-    <table v-else class="data-table">
+    <div v-else class="table-wrap">
+      <table class="data-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -129,6 +130,7 @@ onMounted(() => fetchData())
         </tr>
       </tbody>
     </table>
+    </div>
 
     <!-- Modal Formulario de Rol -->
     <div v-if="isModalOpen" class="modal-backdrop">
@@ -178,6 +180,12 @@ onMounted(() => fetchData())
     justify-content: space-between;
     align-items: center; 
     margin-bottom: 20px; 
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
 }
 .data-table { 
     width: 100%; 

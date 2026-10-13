@@ -2,10 +2,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { authService } from '@/services/auth.services'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 const isDropdownOpen = ref(false)
 
 const toggleDropdown = () => {
@@ -47,7 +49,19 @@ onUnmounted(() => {
 
 <template>
   <header class="navbar-header">
-    <span class="navbar-title">Panel de Control</span>
+    <div class="navbar-left">
+      <button
+        v-if="authStore.isAuthenticated"
+        @click="uiStore.toggleSidebar()"
+        class="hamburger"
+        aria-label="Abrir menú"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <span class="navbar-title">Panel de Control</span>
+    </div>
 
     <div class="navbar-actions">
       <template v-if="authStore.isAuthenticated">
@@ -106,6 +120,43 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   position: relative;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.hamburger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: #333;
+  border-radius: 2px;
+}
+
+@media (max-width: 767px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .navbar-header {
+    padding: 12px 16px;
+  }
 }
 
 .navbar-title {

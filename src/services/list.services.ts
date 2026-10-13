@@ -44,4 +44,22 @@ export const listService = {
 		const response = await api.get<PaginatedResponse<T>>(`/list/${resource}`, { params: query })
 		return response.data
 	},
+
+	async create<T>(endpoint: string, data: Record<string, unknown>): Promise<T> {
+		const response = await api.post<T>(`/${endpoint}`, data)
+		return response.data
+	},
+
+	async update<T>(
+		endpoint: string,
+		id: number | string,
+		data: Record<string, unknown>,
+	): Promise<T> {
+		const response = await api.patch<T>(`/${endpoint}/${id}`, data)
+		return response.data
+	},
+
+	async remove(endpoint: string, id: number | string): Promise<void> {
+		await api.delete(`/${endpoint}/${id}`)
+	},
 }

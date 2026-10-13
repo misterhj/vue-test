@@ -31,3 +31,34 @@ export interface ResourceListFilters {
 	/** Campo usado como label de cada opción cargada. Por defecto `name`. */
 	optionLabel?: string
 }
+
+export type ResourceFormFieldType =
+	| 'text'
+	| 'textarea'
+	| 'number'
+	| 'boolean'
+	| 'select'
+	| 'date'
+
+export interface ResourceFormField {
+	/** Propiedad enviada al backend. Coincide con la columna/entidad. */
+	key: string
+	label: string
+	type: ResourceFormFieldType
+	required?: boolean
+	placeholder?: string
+	/** Valor inicial en el formulario de creación. */
+	defaultValue?: string | number | boolean
+	min?: number
+	max?: number
+	step?: number
+	maxLength?: number
+	/** Opciones estáticas para `select`. */
+	options?: ResourceListFilterOption[]
+	/** Recurso para cargar opciones dinámicas en `select`. */
+	optionsResource?: string
+	/** Campo usado como label de cada opción cargada. Por defecto `name`. */
+	optionLabel?: string
+	/** Ocupa todo el ancho del formulario (p. ej. textarea). */
+	fullWidth?: boolean
+}

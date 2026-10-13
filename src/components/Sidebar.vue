@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 const isUsersMenuOpen = ref(false)
 const isProductsMenuOpen = ref(false)
 
@@ -13,15 +15,19 @@ const toggleUsersMenu = () => {
 const toggleProductsMenu = () => {
   isProductsMenuOpen.value = !isProductsMenuOpen.value
 }
+
+const navigate = () => {
+  uiStore.closeSidebar()
+}
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ 'sidebar--open': uiStore.sidebarOpen }">
     <h3 class="sidebar-brand">Product App</h3>
     
     <nav class="sidebar-nav">
       <!-- Enlace Inicio -->
-      <router-link to="/" class="nav-item">Inicio</router-link>
+      <router-link to="/" class="nav-item" @click="navigate">Inicio</router-link>
 
       <!-- Módulo Productos (Menú Padre Desplegable) -->
       <div v-if="authStore.isAuthenticated && (
@@ -42,6 +48,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('products:read')"
             to="/products"
             class="submenu-item"
+            @click="navigate"
           >
             Productos
           </router-link>
@@ -50,6 +57,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('brands:read')"
             to="/products/brands"
             class="submenu-item"
+            @click="navigate"
           >
             Marcas
           </router-link>
@@ -58,6 +66,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('sections:read')"
             to="/products/sections"
             class="submenu-item"
+            @click="navigate"
           >
             Secciones
           </router-link>
@@ -66,6 +75,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('categories:read')"
             to="/products/categories"
             class="submenu-item"
+            @click="navigate"
           >
             Categorías
           </router-link>
@@ -74,6 +84,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('categories:read')"
             to="/products/subcategories"
             class="submenu-item"
+            @click="navigate"
           >
             Subcategorías
           </router-link>
@@ -82,6 +93,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('models:read')"
             to="/products/models"
             class="submenu-item"
+            @click="navigate"
           >
             Modelos
           </router-link>
@@ -93,6 +105,7 @@ const toggleProductsMenu = () => {
         v-if="authStore.isAuthenticated && authStore.hasPermission('customers:read')"
         to="/customers"
         class="nav-item"
+        @click="navigate"
       >
         Clientes
       </router-link>
@@ -110,6 +123,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('users:read')" 
             to="/users" 
             class="submenu-item"
+            @click="navigate"
           >
             Lista de Usuarios
           </router-link>
@@ -118,6 +132,7 @@ const toggleProductsMenu = () => {
             v-if="authStore.hasPermission('roles:read')" 
             to="/users/roles" 
             class="submenu-item"
+            @click="navigate"
           >
             Roles y Permisos
           </router-link>
@@ -126,7 +141,7 @@ const toggleProductsMenu = () => {
 
       <!-- Login para invitados -->
       <template v-if="!authStore.isAuthenticated">
-        <router-link to="/login" class="nav-item">Login</router-link>
+        <router-link to="/login" class="nav-item" @click="navigate">Login</router-link>
       </template>
     </nav>
   </aside>
@@ -140,6 +155,7 @@ const toggleProductsMenu = () => {
   min-height: 100vh; 
   padding: 20px 15px; 
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .sidebar-brand {
@@ -206,5 +222,22 @@ const toggleProductsMenu = () => {
 .submenu-item.router-link-exact-active {
   background: #1a252f;
   color: #42b983;
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1001;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+  }
 }
 </style>

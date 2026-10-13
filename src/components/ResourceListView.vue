@@ -10,14 +10,56 @@ import type {
 	ResourceListViewColumn,
 } from '@/config/resource-list.types'
 import { listService, type ListParams } from '@/services/list.services'
+import { useAuthStore } from '@/stores/auth'
+import ResourceFormModal from './ResourceFormModal.vue'
 
 type ResourceRow = Record<string, unknown>
 
 const props = defineProps<{ resource: string }>()
 
+const authStore = useAuthStore()
+
 const config = computed<ResourceListConfig | undefined>(
 	() => RESOURCE_LIST_CONFIGS[props.resource],
 )
+
+const showFormModal = ref(false)
+const editingRow = ref<ResourceRow | null>(null)
+const formSaving = ref(false)
+const formError = ref('')
+
+const permissionPrefix = computed(() => config.value?.permission.split(':')[0] ?? '')
+const canManage = computed(() => Boolean(config.value?.form?.length))
+const canCreate = computed(() =>
+	canManage.value && authStore.hasPermission(`${permissionPrefix.value}:create`),
+)
+const canUpdate = computed(() =>
+	canManage.value && authStore.hasPermission(`${permissionPrefix.value}:update`),
+)
+const canDelete = computed(() =>
+	canManage.value && authStore.hasPermission(`${permissionPrefix.value}:delete`),
+)
+const hasManagementActions = computed(() =>
+	canManage.value && (canCreate.value || canUpdate.value || canDelete.value),
+)
+
+const formFields = computed(() => config.value?.form ?? [])
+const modalTitle = computed(() =>
+	editingRow.value ? `Editar ${config.value?.title ?? ''}` : `Nuevo ${config.value?.title ?? ''}`,
+)
+const modalInitial = computed<Record<string, unknown> | undefined>(() => {
+	const row = editingRow.value
+	if (!row) {
+		return undefined
+	}
+	const initial: Record<string, unknown> = {}
+	for (const field of formFields.value) {
+		if (row[field.key] !== undefined) {
+			initial[field.key] = row[field.key]
+		}
+	}
+	return initial
+})
 
 const rows = ref<ResourceRow[]>([])
 const clientRows = ref<ResourceRow[]>([])
@@ -252,6 +294,67 @@ async function loadFilterOptions() {
 	}
 }
 
+function openCreate() {
+	editingRow.value = null
+	formError.value = ''
+	showFormModal.value = true
+}
+
+function openEdit(row: ResourceRow) {
+	editingRow.value = row
+	formError.value = ''
+	showFormModal.value = true
+}
+
+function closeModal() {
+	showFormModal.value = false
+	editingRow.value = null
+	formError.value = ''
+}
+
+async function handleSave(payload: Record<string, unknown>) {
+	if (!config.value) {
+		return
+	}
+	formSaving.value = true
+	formError.value = ''
+	try {
+		const endpoint = config.value.endpoint ?? config.value.resource
+		if (editingRow.value) {
+			await listService.update(endpoint, Number(editingRow.value.id), payload)
+		} else {
+			await listService.create(endpoint, payload)
+		}
+		closeModal()
+		fetchData(currentPage.value)
+	} catch (err: unknown) {
+		formError.value = (err as { message?: string })?.message ?? 'Error al guardar'
+	} finally {
+		formSaving.value = false
+	}
+}
+
+async function removeRow(row: ResourceRow) {
+	if (!config.value) {
+		return
+	}
+	if (!window.confirm(`¿Estás seguro de eliminar este elemento?`)) {
+		return
+	}
+	try {
+		const endpoint = config.value.endpoint ?? config.value.resource
+		await listService.remove(endpoint, Number(row.id))
+		fetchData(currentPage.value)
+	} catch (err: unknown) {
+		window.alert((err as { message?: string })?.message ?? 'Error al eliminar')
+	}
+}
+
+const tableColspan = computed(() => {
+	const cols = config.value?.columns.length ?? 0
+	return cols + (hasManagementActions.value ? 1 : 0)
+})
+
 const title = computed(() => config.value?.title ?? props.resource)
 
 onMounted(() => {
@@ -313,9 +416,13 @@ onUnmounted(() => {
 		<div v-if="loading" class="rl-message">Cargando {{ title.toLowerCase() }}...</div>
 		<div v-else-if="error" class="rl-message rl-error">{{ error }}</div>
 
-		<table v-else class="rl-table">
+		<div v-else class="rl-table-wrap">
+			<table class="rl-table">
 			<thead>
 				<tr>
+					<th v-if="hasManagementActions" class="rl-actions-head">
+						<button v-if="canCreate" class="rl-btn rl-btn-primary" @click="openCreate()">+</button>
+					</th>
 					<th
 						v-for="col in config.columns"
 						:key="col.key"
@@ -332,6 +439,16 @@ onUnmounted(() => {
 			</thead>
 			<tbody>
 				<tr v-for="row in displayRows" :key="String(row.id)">
+					<td v-if="hasManagementActions" class="rl-actions">
+						<div class="rl-actions-buttons">
+							<button v-if="canUpdate" class="rl-btn rl-btn-secondary" @click="openEdit(row)">
+								Editar
+							</button>
+							<button v-if="canDelete" class="rl-btn rl-btn-danger" @click="removeRow(row)">
+								Eliminar
+							</button>
+						</div>
+					</td>
 					<td
 						v-for="col in config.columns"
 						:key="col.key"
@@ -348,12 +465,13 @@ onUnmounted(() => {
 					</td>
 				</tr>
 				<tr v-if="displayRows.length === 0">
-					<td :colspan="config.columns.length" class="rl-empty">
+					<td :colspan="tableColspan" class="rl-empty">
 						No se encontraron registros
 					</td>
 				</tr>
 			</tbody>
 		</table>
+		</div>
 
 		<div class="rl-footer">
 			<div class="rl-pagination">
@@ -375,6 +493,17 @@ onUnmounted(() => {
 				<option :value="100">100 / pág</option>
 			</select>
 		</div>
+
+		<ResourceFormModal
+			v-if="showFormModal"
+			:title="modalTitle"
+			:fields="formFields"
+			:initial="modalInitial"
+			:saving="formSaving"
+			:error="formError"
+			@save="handleSave"
+			@close="closeModal"
+		/>
 	</div>
 </template>
 
@@ -443,6 +572,11 @@ onUnmounted(() => {
 	color: #dc3545;
 }
 
+.rl-table-wrap {
+	width: 100%;
+	overflow-x: auto;
+}
+
 .rl-table {
 	width: 100%;
 	border-collapse: collapse;
@@ -481,6 +615,40 @@ onUnmounted(() => {
 	text-align: center;
 	color: #6c757d;
 	padding: 24px;
+}
+
+.rl-actions-head {
+	min-width: 150px;
+}
+
+.rl-btn {
+	padding: 6px 12px;
+	border-radius: 4px;
+	border: none;
+	cursor: pointer;
+	font-size: 0.85rem;
+}
+
+.rl-btn-primary {
+	background: #1976d2;
+	color: #fff;
+}
+
+.rl-btn-secondary {
+	background: #f0f0f0;
+	color: #333;
+	border: 1px solid #d5d9dc;
+}
+
+.rl-btn-danger {
+	background: #dc3545;
+	color: #fff;
+}
+
+.rl-actions-buttons {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
 }
 
 .rl-badge {

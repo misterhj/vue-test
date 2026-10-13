@@ -147,7 +147,8 @@ onMounted(() => {
 
     <div v-if="isLoading" class="loading">Cargando usuarios...</div>
 
-    <table v-else class="data-table">
+    <div v-else class="table-wrap">
+      <table class="data-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -182,6 +183,7 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
+    </div>
 
     <div class="pagination">
       <button :disabled="currentPage === 1" @click="loadData(currentPage - 1)">
@@ -294,7 +296,13 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
 }
 .data-table {
   width: 100%;
@@ -344,6 +352,7 @@ onMounted(() => {
 .form-row {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 .form-group {
   flex: 1;
