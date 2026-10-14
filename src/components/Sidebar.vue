@@ -92,6 +92,36 @@ const navigate = () => {
         Clientes
       </router-link>
 
+      <!-- Compras -->
+      <router-link
+        v-if="authStore.isAuthenticated && authStore.hasPermission('purchases:read')"
+        to="/purchases"
+        class="nav-item"
+        @click="navigate"
+      >
+        Compras
+      </router-link>
+
+      <!-- Ventas -->
+      <router-link
+        v-if="authStore.isAuthenticated && authStore.hasPermission('sales:read')"
+        to="/sales"
+        class="nav-item"
+        @click="navigate"
+      >
+        Ventas
+      </router-link>
+
+      <!-- Inventario -->
+      <router-link
+        v-if="authStore.isAuthenticated && authStore.hasPermission('inventory:read')"
+        to="/inventory"
+        class="nav-item"
+        @click="navigate"
+      >
+        Inventario
+      </router-link>
+
       <!-- Módulo Usuarios (Menú Padre Desplegable) -->
       <div v-if="authStore.isAuthenticated && (authStore.hasPermission('users:read') || authStore.hasPermission('roles:read'))">
         <button @click="toggleUsersMenu" class="nav-item nav-parent-btn">

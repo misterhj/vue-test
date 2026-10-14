@@ -12,6 +12,8 @@ const props = defineProps<{
 	title: string
 	fields: ResourceFormField[]
 	initial?: Record<string, unknown>
+	/** `id` de la entidad en edición (para sub-paneles como media o direcciones). */
+	entityId?: number | null
 	saving?: boolean
 	error?: string
 }>()
@@ -156,8 +158,7 @@ onMounted(loadOptions)
 					:key="field.key"
 					class="rfm-field"
 					:class="{ 'rfm-full': field.fullWidth }"
-				>
-					<label class="rfm-label">
+				>					<label class="rfm-label">
 						{{ field.label }}
 						<span v-if="field.required" class="rfm-required">*</span>
 					</label>
@@ -224,6 +225,10 @@ onMounted(loadOptions)
 					</label>
 				</div>
 
+				<div v-if="$slots.extra" class="rfm-subpanel">
+					<slot name="extra" :entity-id="entityId ?? null"></slot>
+				</div>
+
 				<p v-if="error" class="rfm-error">{{ error }}</p>
 
 				<div class="rfm-actions">
@@ -285,6 +290,11 @@ onMounted(loadOptions)
 
 .rfm-full {
 	flex-basis: 100%;
+}
+
+.rfm-subpanel {
+	flex-basis: 100%;
+	margin-top: 4px;
 }
 
 .rfm-label {

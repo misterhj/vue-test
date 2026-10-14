@@ -20,6 +20,8 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import ColumnFilter from './ColumnFilter.vue'
 import ResourceFormModal from './ResourceFormModal.vue'
+import ProductMediaPanel from './ProductMediaPanel.vue'
+import CustomerAddressPanel from './CustomerAddressPanel.vue'
 
 type ResourceRow = Record<string, unknown>
 
@@ -71,6 +73,19 @@ const hasManagementActions = computed(() =>
 const formFields = computed(() => config.value?.form ?? [])
 const modalTitle = computed(() =>
 	editingRow.value ? `Editar ${config.value?.title ?? ''}` : `Nuevo ${config.value?.title ?? ''}`,
+)
+
+/** Sub-panel de entidad relacionada (media de productos / direcciones de clientes). */
+const subjectPanel = computed(() =>
+	props.resource === 'products'
+		? ProductMediaPanel
+		: props.resource === 'customers'
+			? CustomerAddressPanel
+			: null,
+)
+
+const editingEntityId = computed<number | null>(() =>
+	editingRow.value ? Number(editingRow.value.id) : null,
 )
 const modalInitial = computed<Record<string, unknown> | undefined>(() => {
 	const row = editingRow.value
@@ -787,11 +802,16 @@ onUnmounted(() => {
 			:title="modalTitle"
 			:fields="formFields"
 			:initial="modalInitial"
+			:entity-id="editingEntityId"
 			:saving="formSaving"
 			:error="formError"
 			@save="handleSave"
 			@close="closeModal"
-		/>
+		>
+			<template v-if="subjectPanel && editingRow" #extra="{ entityId }">
+				<component :is="subjectPanel" :entity-id="entityId" />
+			</template>
+		</ResourceFormModal>
 	</div>
 </template>
 

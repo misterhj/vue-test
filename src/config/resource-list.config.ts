@@ -325,4 +325,71 @@ export const RESOURCE_LIST_CONFIGS: Record<string, ResourceListConfig> = {
 			{ key: 'isActive', label: 'Activo', type: 'boolean', defaultValue: true },
 		],
 	},
+	'stock-movements': {
+		resource: 'stock-movements',
+		title: 'Movimientos de stock',
+		permission: 'inventory:read',
+		defaultSort: { field: 'id', order: 'DESC' },
+		columns: [
+			{ key: 'id', label: 'ID', type: 'number', sortable: true, filterable: true },
+			{
+				key: 'product',
+				label: 'Producto',
+				get: (row: Record<string, unknown>) =>
+					(row.product as Record<string, unknown> | null)?.name,
+				filterable: true,
+				filterType: 'select',
+				filterKey: 'productId',
+				filterOptionsResource: 'products',
+			},
+			{
+				key: 'type',
+				label: 'Tipo',
+				get: (row: Record<string, unknown>) =>
+					({ purchase: 'Compra', sale: 'Venta', adjustment: 'Ajuste' })[
+						String(row.type)
+					] ?? row.type,
+				filterable: true,
+				filterType: 'select',
+				filterOptions: [
+					{ value: 'purchase', label: 'Compra' },
+					{ value: 'sale', label: 'Venta' },
+					{ value: 'adjustment', label: 'Ajuste' },
+				],
+			},
+			{
+				key: 'direction',
+				label: 'Dirección',
+				get: (row: Record<string, unknown>) =>
+					({ in: 'Entrada', out: 'Salida' })[String(row.direction)] ?? row.direction,
+				filterable: true,
+				filterType: 'select',
+				filterOptions: [
+					{ value: 'in', label: 'Entrada' },
+					{ value: 'out', label: 'Salida' },
+				],
+			},
+			{
+				key: 'quantity',
+				label: 'Cantidad',
+				type: 'number',
+				sortable: true,
+				align: 'right',
+			},
+			{
+				key: 'unitCost',
+				label: 'Costo unitario',
+				type: 'currency',
+				align: 'right',
+			},
+			{
+				key: 'referenceType',
+				label: 'Origen',
+				get: (row: Record<string, unknown>) =>
+					({ purchase: 'Compra', sale: 'Venta' })[String(row.referenceType)] ??
+					row.referenceType,
+			},
+			{ key: 'createdAt', label: 'Fecha', type: 'date', sortable: true },
+		],
+	},
 }

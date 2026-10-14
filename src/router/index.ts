@@ -81,6 +81,36 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
+		path: '/purchases',
+		name: 'purchases',
+		component: () => import('@/components/DocumentListView.vue'),
+		props: { document: 'purchases' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'purchases:read',
+		},
+	},
+	{
+		path: '/sales',
+		name: 'sales',
+		component: () => import('@/components/DocumentListView.vue'),
+		props: { document: 'sales' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'sales:read',
+		},
+	},
+	{
+		path: '/inventory',
+		name: 'inventory',
+		component: ResourceListView,
+		props: { resource: 'stock-movements' },
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'inventory:read',
+		},
+	},
+	{
 		path: '/login',
 		name: 'login',
 		component: LoginView,
