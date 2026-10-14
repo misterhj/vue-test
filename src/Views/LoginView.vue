@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { authService } from '@/services/auth.services'
 import { useAuthStore } from '@/stores/auth'
 
@@ -30,8 +30,9 @@ const handleLogin = async () => {
     authStore.setSession(response);
 
     router.push('/');
-  } catch (err: any) {
-    errorMessage.value = err.message
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    errorMessage.value = e.message || 'Error al iniciar sesión'
   } finally {
     loading.value = false
   }
@@ -85,11 +86,10 @@ const handleLogin = async () => {
           <span>{{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}</span>
         </button>
       </form>
-	<!--
+
       <p class="auth-footer">
-        ¿No tienes cuenta? <router-link to="/register">Regístrate aquí</router-link>
+        <router-link to="/forgot-password">¿Olvidaste tu contraseña?</router-link>
       </p>
-	-->
     </div>
   </div>
 </template>

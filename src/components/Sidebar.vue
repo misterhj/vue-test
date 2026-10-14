@@ -7,6 +7,7 @@ const authStore = useAuthStore()
 const uiStore = useUiStore()
 const isUsersMenuOpen = ref(false)
 const isProductsMenuOpen = ref(false)
+const isReportsMenuOpen = ref(false)
 
 const toggleUsersMenu = () => {
   isUsersMenuOpen.value = !isUsersMenuOpen.value
@@ -14,6 +15,10 @@ const toggleUsersMenu = () => {
 
 const toggleProductsMenu = () => {
   isProductsMenuOpen.value = !isProductsMenuOpen.value
+}
+
+const toggleReportsMenu = () => {
+  isReportsMenuOpen.value = !isReportsMenuOpen.value
 }
 
 const navigate = () => {
@@ -131,6 +136,42 @@ const navigate = () => {
       >
         Pagos y Cobros
       </router-link>
+
+      <!-- Reportes -->
+      <div v-if="authStore.isAuthenticated && authStore.hasPermission('reports:read')">
+        <button @click="toggleReportsMenu" class="nav-item nav-parent-btn">
+          <span>Reportes</span>
+          <span class="arrow">{{ isReportsMenuOpen ? '▼' : '▶' }}</span>
+        </button>
+        <transition name="fade">
+          <ul v-if="isReportsMenuOpen" class="menu-sub">
+            <li>
+              <router-link to="/reports/sales">
+                <i class="bi bi-bar-chart"></i>
+                <span class="menu-text">Ventas por período</span>
+              </router-link>
+            </li>
+            <li>
+              <router-link to="/reports/stock-valuation">
+                <i class="bi bi-box-seam"></i>
+                <span class="menu-text">Stock valorizado</span>
+              </router-link>
+            </li>
+            <li>
+              <router-link to="/reports/receivables">
+                <i class="bi bi-clock-history"></i>
+                <span class="menu-text">Cuentas por cobrar</span>
+              </router-link>
+            </li>
+            <li>
+              <router-link to="/reports/payables">
+                <i class="bi bi-receipt"></i>
+                <span class="menu-text">Cuentas por pagar</span>
+              </router-link>
+            </li>
+          </ul>
+        </transition>
+      </div>
 
       <!-- Módulo Usuarios (Menú Padre Desplegable) -->
       <div v-if="authStore.isAuthenticated && (authStore.hasPermission('users:read') || authStore.hasPermission('roles:read'))">

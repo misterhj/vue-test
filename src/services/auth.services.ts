@@ -31,6 +31,21 @@ export interface AuthResponse {
     user: User;
 }
 
+export interface ForgotPasswordDto {
+    usernameOrEmail: string;
+}
+
+export interface ResetPasswordDto {
+    token: string;
+    password: string;
+}
+
+export interface ForgotPasswordResponse {
+    message: string;
+    /** Solo se devuelve fuera de producción (entornos de prueba). */
+    resetToken?: string;
+}
+
 export const authService = {
     async login(data: LoginDto): Promise<AuthResponse> {
         const response = await api.post<AuthResponse>('/auth/login', data);
@@ -58,5 +73,15 @@ export const authService = {
         } catch (error) {
             console.error('Error al cerrar sesión en el servidor:', error);
         }
+    },
+
+    async forgotPassword(data: ForgotPasswordDto): Promise<ForgotPasswordResponse> {
+        const response = await api.post<ForgotPasswordResponse>('/auth/forgot-password', data);
+        return response.data;
+    },
+
+    async resetPassword(data: ResetPasswordDto): Promise<{ message: string }> {
+        const response = await api.post<{ message: string }>('/auth/reset-password', data);
+        return response.data;
     },
 };

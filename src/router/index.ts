@@ -120,9 +120,57 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
+		path: '/reports/sales',
+		name: 'reports-sales',
+		component: () => import('@/components/SalesReportView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'reports:read',
+		},
+	},
+	{
+		path: '/reports/stock-valuation',
+		name: 'reports-stock-valuation',
+		component: () => import('@/components/StockValuationView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'reports:read',
+		},
+	},
+	{
+		path: '/reports/receivables',
+		name: 'reports-receivables',
+		component: () => import('@/components/ReceivablesView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'reports:read',
+		},
+	},
+	{
+		path: '/reports/payables',
+		name: 'reports-payables',
+		component: () => import('@/components/PayablesView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'reports:read',
+		},
+	},
+	{
 		path: '/login',
 		name: 'login',
 		component: LoginView,
+		meta: { guestOnly: true }
+	},
+	{
+		path: '/forgot-password',
+		name: 'forgot-password',
+		component: () => import('@/views/auth/ForgotPasswordView.vue'),
+		meta: { guestOnly: true }
+	},
+	{
+		path: '/reset-password',
+		name: 'reset-password',
+		component: () => import('@/views/auth/ResetPasswordView.vue'),
 		meta: { guestOnly: true }
 	},
 	{
