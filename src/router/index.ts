@@ -111,6 +111,15 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
+		path: '/payments',
+		name: 'payments',
+		component: () => import('@/components/PaymentListView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'payments:read',
+		},
+	},
+	{
 		path: '/login',
 		name: 'login',
 		component: LoginView,

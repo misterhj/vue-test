@@ -122,6 +122,16 @@ const navigate = () => {
         Inventario
       </router-link>
 
+      <!-- Pagos y Cobros -->
+      <router-link
+        v-if="authStore.isAuthenticated && authStore.hasPermission('payments:read')"
+        to="/payments"
+        class="nav-item"
+        @click="navigate"
+      >
+        Pagos y Cobros
+      </router-link>
+
       <!-- Módulo Usuarios (Menú Padre Desplegable) -->
       <div v-if="authStore.isAuthenticated && (authStore.hasPermission('users:read') || authStore.hasPermission('roles:read'))">
         <button @click="toggleUsersMenu" class="nav-item nav-parent-btn">

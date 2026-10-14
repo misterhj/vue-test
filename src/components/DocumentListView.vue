@@ -20,6 +20,13 @@ import {
 	DOCUMENT_LIST_CONFIGS,
 	type DocumentKind,
 } from '@/config/document-list.config'
+import PaymentFormModal from './PaymentFormModal.vue'
+import {
+	paymentService,
+	type PaymentInput,
+	type PaymentStatus,
+	type PaymentSummary,
+} from '@/services/payments.services'
 
 const props = defineProps<{
 	document: DocumentKind
@@ -142,6 +149,92 @@ const hasActions = computed(
 	() => canCreate.value || canUpdate.value || canDelete.value || canConfirm.value,
 )
 
+const showPayments = computed(() => authStore.hasPermission('payments:read'))
+const canPay = computed(() => authStore.hasPermission('payments:create'))
+const isPurchaseDoc = computed(() => props.document === 'purchases')
+
+const payVerb = computed(() => (isPurchaseDoc.value ? 'Pagar' : 'Cobrar'))
+const payNoun = computed(() => (isPurchaseDoc.value ? 'Pago' : 'Cobro'))
+
+const summaries = ref<Record<number, PaymentSummary>>({})
+let summaryReqId = 0
+
+const payTarget = ref<Row | null>(null)
+const paySaving = ref(false)
+const payError = ref('')
+
+const colCount = computed(
+	() => 5 + (showPayments.value ? 1 : 0) + (hasActions.value ? 1 : 0),
+)
+
+function paymentStatusLabel(status: PaymentStatus | undefined): string {
+	if (status === 'paid') {
+		return isPurchaseDoc.value ? 'Pagada' : 'Cobrada'
+	}
+	if (status === 'partial') {
+		return 'Parcial'
+	}
+	return 'Pendiente'
+}
+
+function rowPayment(row: Row): PaymentSummary | undefined {
+	return summaries.value[row.id]
+}
+
+function canRegisterPayment(row: Row): boolean {
+	const summary = summaries.value[row.id]
+	return row.status === 'confirmed' && canPay.value && !!summary && summary.balanceDue > 0
+}
+
+function documentLabel(row: Row): string {
+	const noun = isPurchaseDoc.value ? 'Compra' : 'Venta'
+	return `${noun} ${row.number ? `#${row.number}` : `#${row.id}`}`
+}
+
+async function loadSummaries(list: Row[]) {
+	const requestId = ++summaryReqId
+	const confirmed = list.filter((row) => row.status === 'confirmed')
+	const next: Record<number, PaymentSummary> = {}
+	await Promise.allSettled(
+		confirmed.map(async (row) => {
+			try {
+				next[row.id] = await paymentService.summary(
+					isPurchaseDoc.value ? { purchaseId: row.id } : { saleId: row.id },
+				)
+			} catch {
+				// sin saldo disponible: se omite el badge
+			}
+		}),
+	)
+	if (requestId === summaryReqId) {
+		summaries.value = next
+	}
+}
+
+function openPay(row: Row) {
+	payTarget.value = row
+	payError.value = ''
+}
+
+function closePay() {
+	payTarget.value = null
+	payError.value = ''
+}
+
+async function handlePay(payload: PaymentInput) {
+	paySaving.value = true
+	payError.value = ''
+	try {
+		await paymentService.create(payload)
+		closePay()
+		await fetchData(currentPage.value)
+	} catch (err: unknown) {
+		payError.value = (err as { message?: string })?.message ?? 'Error al registrar el movimiento'
+	} finally {
+		paySaving.value = false
+	}
+}
+
 function money(value: number): string {
 	return `$${Number(value).toLocaleString('en-US', {
 		minimumFractionDigits: 2,
@@ -203,6 +296,10 @@ async function fetchData(page = 1) {
 		currentPage.value = res.current_page
 		lastPage.value = res.last_page
 		total.value = res.total
+		summaries.value = {}
+		if (showPayments.value) {
+			void loadSummaries(rows.value)
+		}
 	} catch (err: unknown) {
 		error.value = (err as { message?: string })?.message ?? 'Error al cargar los datos'
 		rows.value = []
@@ -454,6 +551,7 @@ watch(() => props.document, initialize)
 							</span>
 						</th>
 						<th>Estado</th>
+						<th v-if="showPayments">{{ payNoun }}</th>
 						<th class="doc-right doc-sortable" @click="toggleSort('total')">
 							Total
 							<span v-if="sortBy === 'total'" class="doc-sort-arrow">
@@ -472,6 +570,28 @@ watch(() => props.document, initialize)
 							<span class="doc-badge" :class="`doc-badge-${row.status}`">
 								{{ statusLabel(row.status) }}
 							</span>
+						</td>
+						<td v-if="showPayments" class="doc-payments">
+							<template v-if="row.status === 'confirmed'">
+								<template v-if="rowPayment(row)">
+									<span
+										class="doc-badge"
+										:class="`doc-pay-${rowPayment(row)?.status}`"
+									>
+										{{ paymentStatusLabel(rowPayment(row)?.status) }}
+									</span>
+									<button
+										v-if="canRegisterPayment(row)"
+										class="doc-icon-btn doc-icon-btn-pay"
+										:title="`${payVerb} ${money(rowPayment(row)?.balanceDue ?? 0)}`"
+										@click="openPay(row)"
+									>
+										{{ payVerb }}
+									</button>
+								</template>
+								<span v-else class="doc-pay-loading">…</span>
+							</template>
+							<span v-else>—</span>
 						</td>
 						<td class="doc-right">{{ money(row.total) }}</td>
 						<td v-if="hasActions" class="doc-actions">
@@ -513,7 +633,7 @@ watch(() => props.document, initialize)
 						</td>
 					</tr>
 					<tr v-if="rows.length === 0">
-						<td :colspan="hasActions ? 6 : 5" class="doc-empty">
+						<td :colspan="colCount" class="doc-empty">
 							No se encontraron registros
 						</td>
 					</tr>
@@ -550,6 +670,19 @@ watch(() => props.document, initialize)
 			:error="formError"
 			@save="handleSave"
 			@close="closeModal"
+		/>
+
+		<PaymentFormModal
+			v-if="payTarget"
+			:mode="isPurchaseDoc ? 'purchase' : 'sale'"
+			:document-id="payTarget.id"
+			:document-label="documentLabel(payTarget)"
+			:party-label="config.partyLabel"
+			:party-name="payTarget.partyName"
+			:saving="paySaving"
+			:error="payError"
+			@save="handlePay"
+			@close="closePay"
 		/>
 	</div>
 </template>
@@ -732,6 +865,41 @@ watch(() => props.document, initialize)
 
 .doc-icon-btn-danger:hover {
 	background: #f8d7da;
+}
+
+.doc-icon-btn-pay {
+	background: #e7f1fd;
+	color: #1565c0;
+}
+
+.doc-icon-btn-pay:hover {
+	background: #d3e6fb;
+}
+
+.doc-payments {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.doc-pay-loading {
+	color: #adb5bd;
+}
+
+.doc-pay-pending {
+	background: #e9ecef;
+	color: #495057;
+}
+
+.doc-pay-partial {
+	background: #fff3cd;
+	color: #856404;
+}
+
+.doc-pay-paid {
+	background: #d4edda;
+	color: #155724;
 }
 
 .doc-badge {
