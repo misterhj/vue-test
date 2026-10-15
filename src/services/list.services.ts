@@ -101,7 +101,7 @@ export function getOptions(resource: string, optionLabel = 'name'): Promise<Opti
 		.then((res) => {
 			const items = res.data.map((row) => ({
 				value: (row.id as string | number) ?? '',
-				label: String(row[labelKey] ?? row.name ?? row.id ?? ''),
+				label: optionLabelForRow(row, labelKey),
 			}))
 			optionCache.set(cacheKey, items)
 			return items
@@ -112,4 +112,26 @@ export function getOptions(resource: string, optionLabel = 'name'): Promise<Opti
 
 	optionPending.set(cacheKey, request)
 	return request
+}
+
+/** Etiqueta legible para una fila de opciones, tolerante a distintas entidades. */
+function optionLabelForRow(row: Record<string, unknown>, labelKey: string): string {
+	const raw = row[labelKey]
+	if (raw !== undefined && raw !== null && raw !== '') {
+		return String(raw)
+	}
+	if (row.name) {
+		return String(row.name)
+	}
+	if (row.businessName) {
+		return String(row.businessName)
+	}
+	const composed = [row.firstName, row.lastName].filter(Boolean).join(' ').trim()
+	if (composed) {
+		return composed
+	}
+	if (row.username) {
+		return String(row.username)
+	}
+	return String(row.id ?? '')
 }

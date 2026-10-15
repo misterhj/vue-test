@@ -8,6 +8,7 @@ const uiStore = useUiStore()
 const isUsersMenuOpen = ref(false)
 const isProductsMenuOpen = ref(false)
 const isReportsMenuOpen = ref(false)
+const isCrmMenuOpen = ref(false)
 
 const toggleUsersMenu = () => {
   isUsersMenuOpen.value = !isUsersMenuOpen.value
@@ -19,6 +20,10 @@ const toggleProductsMenu = () => {
 
 const toggleReportsMenu = () => {
   isReportsMenuOpen.value = !isReportsMenuOpen.value
+}
+
+const toggleCrmMenu = () => {
+  isCrmMenuOpen.value = !isCrmMenuOpen.value
 }
 
 const navigate = () => {
@@ -139,6 +144,28 @@ const navigate = () => {
       >
         Pagos y Cobros
       </router-link>
+
+      <!-- CRM -->
+      <div v-if="authStore.isAuthenticated && authStore.hasPermission('crm:read')">
+        <button @click="toggleCrmMenu" class="nav-item nav-parent-btn">
+          <span>CRM</span>
+          <span class="arrow">{{ isCrmMenuOpen ? '▼' : '▶' }}</span>
+        </button>
+        <div v-if="isCrmMenuOpen" class="submenu">
+          <router-link to="/crm/leads" class="submenu-item" @click="navigate">
+            Leads
+          </router-link>
+          <router-link to="/crm/opportunities" class="submenu-item" @click="navigate">
+            Oportunidades
+          </router-link>
+          <router-link to="/crm/activities" class="submenu-item" @click="navigate">
+            Actividades
+          </router-link>
+          <router-link to="/crm/quotes" class="submenu-item" @click="navigate">
+            Cotizaciones
+          </router-link>
+        </div>
+      </div>
 
       <!-- Reportes -->
       <div v-if="authStore.isAuthenticated && authStore.hasPermission('reports:read')">

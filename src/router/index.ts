@@ -156,6 +156,42 @@ const routes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
+		path: '/crm/leads',
+		name: 'crm-leads',
+		component: () => import('@/components/crm/LeadsView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'crm:read',
+		},
+	},
+	{
+		path: '/crm/opportunities',
+		name: 'crm-opportunities',
+		component: () => import('@/components/crm/OpportunitiesView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'crm:read',
+		},
+	},
+	{
+		path: '/crm/activities',
+		name: 'crm-activities',
+		component: () => import('@/components/crm/ActivitiesView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'crm:read',
+		},
+	},
+	{
+		path: '/crm/quotes',
+		name: 'crm-quotes',
+		component: () => import('@/components/crm/QuotesView.vue'),
+		meta: {
+			requiresAuth: true,
+			requiredPermission: 'crm:read',
+		},
+	},
+	{
 		path: '/login',
 		name: 'login',
 		component: LoginView,
