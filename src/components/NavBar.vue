@@ -129,7 +129,7 @@ onUnmounted(() => {
 }
 
 .hamburger {
-  display: none;
+  display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 4px;

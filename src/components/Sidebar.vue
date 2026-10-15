@@ -27,8 +27,11 @@ const navigate = () => {
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ 'sidebar--open': uiStore.sidebarOpen }">
-    <h3 class="sidebar-brand">Product App</h3>
+  <aside
+    class="sidebar"
+    :class="{ 'sidebar--open': uiStore.sidebarOpen, 'sidebar--collapsed': uiStore.sidebarCollapsed }"
+  >
+    <h3 class="sidebar-brand">Tech Sys</h3>
     
     <nav class="sidebar-nav">
       <!-- Enlace Inicio -->
@@ -286,6 +289,19 @@ const navigate = () => {
 .submenu-item.router-link-exact-active {
   background: #1a252f;
   color: #42b983;
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    transition: width 0.2s ease, padding 0.2s ease;
+  }
+
+  .sidebar--collapsed {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden;
+  }
 }
 
 @media (max-width: 767px) {
